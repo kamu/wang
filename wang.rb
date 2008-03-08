@@ -21,7 +21,7 @@ Keep-Alive: 300
 Connection: keep-alive
 Referer: %s%s\n\n\n"
 COOKIES = "\nCookie: "
-DEBUG = false
+DEBUG = true
 
 class WANG
 	attr_accessor :referer
@@ -32,6 +32,7 @@ class WANG
 		@referer = URI.parse("http://www.google.com/")
 	end
 
+	#TODO, perhaps add parenthesis around the params?
 	def get url
 		request("GET", url.is_a?(URI) ? url : URI.parse(url)) 
 	end
@@ -43,27 +44,18 @@ class WANG
 	private
 	def request method, uri, data = nil
 		check_socket uri.host
-		@socket << HEADERS % [method, uri.path, uri.host, @referer.to_s, ""]
+		@socket << HEADERS % [method, uri.path.empty? ? "/" : uri.path , uri.host, @referer.to_s, ""]
+		# invalid request if "/" isn't passed for empty path
 
+		# TODO, fix the referer crap
 		@referer = uri
 
-		#i hate this, but see no nicer alternative?
-		incoming = @socket.readpartial(10000000)
-		headers, body = clean_data(incoming)
-
-		puts headers.inspect if DEBUG
-		return handle_redirect(headers["location"], uri) if [301, 302].include?(headers['code'])
-		body = decompress(headers["content-encoding"], body)
-
-		return headers, body
-	end
-
-	def clean_data input
-		rawheaders, body = input.split("\r\n\r\n", 2)
-
+		#read headers
 		headers = Hash.new
-
-		rawheaders.split(/(\r)?\n/).each do |header| # should support broken servers which just send \n
+		while header = @socket.gets("\n")
+			header.sub!(/(\r)?\n/, "")
+			puts header if DEBUG
+			break if header.empty?
 			if header =~ /^HTTP\/1\.\d (\d+) (.*)$/
 				headers['code'] = $1.to_i
 			else
@@ -72,6 +64,29 @@ class WANG
 				headers.store(pair[0].downcase, pair[1])
 			end
 		end
+		puts headers.inspect if DEBUG
+
+		#read the body
+		#TODO split to methods, maybe
+		body = ""
+		if headers["transfer-encoding"] =~ /chunked/i # read chunked body
+			while true
+				line = @socket.readline
+				chunk_len = line.slice(/[0-9a-fA-F]+/).hex
+				break if chunk_len == 0
+				body << @socket.read(chunk_len)
+				@socket.read 2 # read the damn linechange
+			end
+			until @socket.readline.empty?; end # read the chunk footers and the last line
+		elsif headers["content-length"] # read body with content length
+			clen = headers["content-length"].to_i
+			while body.length < clen
+				body << @socket.read([clen - body.length, 4096].min)
+			end
+		end
+		
+		return handle_redirect(headers["location"], uri) if [301, 302].include?(headers['code'])
+		body = decompress(headers["content-encoding"], body)
 
 		return headers, body
 	end
@@ -96,7 +111,7 @@ class WANG
 			rescue Zlib::DataError # check http://www.ruby-forum.com/topic/136825 for more info
 				return Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate(body)
 			end
-		when "identity"
+		else
 			return body
 		end
 	end
@@ -106,6 +121,7 @@ class WANG
 	end
 
 	def connect host
+		puts "Connecting to #{host}" if DEBUG
 		@socket.close unless @socket.nil?
 		@socket = TCPSocket.new(host, 'www')
 		@host = host
@@ -124,4 +140,4 @@ class WANGJar
 end
 
 test = WANG.new
-puts test.get("http://google.com/").inspect
+puts test.get("http://google.com")[0].inspect
