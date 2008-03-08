@@ -77,7 +77,8 @@ class WANG
 				body << @socket.read(chunk_len)
 				@socket.read 2 # read the damn linechange
 			end
-			until @socket.readline.empty?; end # read the chunk footers and the last line
+			until (line = @socket.gets) and (line.nil? or line.sub(/\r?\n?/, "").empty?); end # read the chunk footers and the last line
+			# atleast server at www.whatismyip.com has \r\n in their last line
 		elsif headers["content-length"] # read body with content length
 			clen = headers["content-length"].to_i
 			while body.length < clen
@@ -87,7 +88,7 @@ class WANG
 
 		@socket.close if headers["connection"] =~ /close/
 		
-		return handle_redirect(headers["location"], uri) if [301, 302].include?(headers['code'])
+		return handle_redirect(headers["location"], uri) if [301, 302, 303, 307].include?(headers['code'])
 		body = decompress(headers["content-encoding"], body)
 
 		return headers, body
@@ -143,5 +144,6 @@ end
 
 if __FILE__ == $0
 	test = WANG.new
+	# www.whatismyip.com for testing chunked & gzipped
 	puts test.get("http://google.com")[0].inspect
 end
