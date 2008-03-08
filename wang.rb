@@ -84,6 +84,8 @@ class WANG
 				body << @socket.read([clen - body.length, 4096].min)
 			end
 		end
+
+		@socket.close if headers["connection"] =~ /close/
 		
 		return handle_redirect(headers["location"], uri) if [301, 302].include?(headers['code'])
 		body = decompress(headers["content-encoding"], body)
@@ -116,13 +118,13 @@ class WANG
 		end
 	end
 
-	def check_socket host
+	def check_socket host 		
 		connect(host) if @socket.nil? or @socket.closed? or @host.nil? or not @host.eql? host
 	end
 
 	def connect host
 		puts "Connecting to #{host}" if DEBUG
-		@socket.close unless @socket.nil?
+		@socket.close unless @socket.nil? or @socket.closed?
 		@socket = TCPSocket.new(host, 'www')
 		@host = host
 	end
