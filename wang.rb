@@ -139,5 +139,7 @@ class WANGJar
 
 end
 
-test = WANG.new
-puts test.get("http://google.com")[0].inspect
+if __FILE__ == $0
+	test = WANG.new
+	puts test.get("http://google.com")[0].inspect
+end
