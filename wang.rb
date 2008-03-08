@@ -1,7 +1,8 @@
 #
-# WANG - Web Acess with No Grief
+# WANG - Web Acess with No Grief v0.01
 #
 # goal: fast & no-nonsense httplib that supports keepalive & zlib
+# maybes: perhaps implement a caching system via use of if-none-match/last-modified (should be fairly easy to do so!)
 
 require 'socket'
 require 'uri'
@@ -27,41 +28,62 @@ class WANG
 		@jar = WANGJar.new
 		@socket = nil
 		@host = nil
-		@referer = "http://www.google.com"
+		@referer = URI.parse("http://www.google.com/")
 	end
 
 	def get url
-		request("GET", URI.parse(url)) 
+		request("GET", url.is_a?(URI) ? url : URI.parse(url)) 
 	end
 
 	def post url, data, referer = nil
-		request("POST", URI.parse(url), data) 
+		request("POST", url.is_a?(URI) ? url : URI.parse(url), data) 
 	end
 
 	private
 	def request method, uri, data = nil
 		check_socket uri.host
-		@socket << HEADERS % [method, uri.path, uri.host, @referer, ""]
+		@socket << HEADERS % [method, uri.path, uri.host, @referer.to_s, ""]
 
-		@referer = uri.to_s
+		@referer = uri
 
 		#i hate this, but see no nicer alternative?
 		incoming = @socket.readpartial(10000000)
-		rawheaders, body = incoming.split("\r\n\r\n", 2)
+		headers, body = clean_data(incoming)
+
+		puts headers.inspect
+		return handle_redirect(headers["Location"]) if [301, 302].include?(headers['code'])
+		body = decompress(headers["Content-Encoding"], body)
+
+		return headers, body
+	end
+
+	def clean_data input
+		rawheaders, body = input.split("\r\n\r\n", 2)
 
 		headers = Hash.new
 
 		rawheaders.split("\r\n").each do |header| 
 			if header =~ /^HTTP\/1\.\d (\d+) (.*)$/
-				headers['code'] = $1
+				headers['code'] = $1.to_i
 			else
 				headers.store(*header.split(": ", 2))
 			end
 		end
 
-		body = Zlib::GzipReader.new(StringIO.new(body)).read if headers["Content-Encoding"].eql? "gzip"
-
 		return headers, body
+	end
+
+	def handle_redirect location
+		dest = URI.parse(location)
+		dest.host = @referer.host if dest.host.nil?
+		get(dest)
+	end
+
+	def decompress type, body
+		case type
+		when "gzip"
+			return Zlib::GzipReader.new(StringIO.new(body)).read
+		end
 	end
 
 	def check_socket host
@@ -76,7 +98,10 @@ class WANG
 end
 
 class WANGCookie
+	def initialize raw_cookie
+		@key, @value, @domain, @path, @expires = nil
 
+	end
 end
 
 class WANGJar
@@ -84,4 +109,4 @@ class WANGJar
 end
 
 test = WANG.new
-puts test.get("http://p34r.org/test.html").inspect
+puts test.get("http://google.com/").inspect
