@@ -47,7 +47,6 @@ class WANG
 		request("GET", url.is_a?(URI) ? url : URI.parse(url), referer) 
 	end
 
-	#TODO (Kamu): Add post/formdata
 	def post url, data, referer = nil
 		request("POST", url.is_a?(URI) ? url : URI.parse(url), referer, data) 
 	end
@@ -63,6 +62,9 @@ class WANG
 			uri.path.empty? ? "/" : uri.path + (uri.query.nil? ? "" : "?#{uri.query}"),
 			uri.host, @referer.to_s
 		]
+			
+		data = data.map {|k,v| "#{URI.encode(k)}=#{URI.encode(v)}&"}.join.sub(/&\z/, "") if data.is_a?(Hash)
+
 		@socket << FORM % [
 			data.length
 		] if data
@@ -187,7 +189,7 @@ if __FILE__ == $0
 	#puts d
 
 #	st, hd, bd = test.get('http://pd.eggsampler.com')
-	st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', 'mopar=dongs&joux3=king')
+	st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', {'mopar'=>'dongs', 'joux3'=>'king'})
 	puts [st, hd].inspect
 	puts bd
 end
