@@ -110,6 +110,13 @@ class WANG
 			while body.length < clen
 				body << @socket.read([clen - body.length, 4096].min)
 			end
+		else #fallback that'll just consume all the data available 
+			begin
+				while true
+					body << @socket.readpartial(4096)
+				end
+			rescue EOFError
+			end
 		end
 
 		return body
@@ -118,9 +125,7 @@ class WANG
 	def handle_redirect location, olduri
 		@log.debug(location.inspect)
 		dest = URI.parse(location)
-		unless dest.is_a?(URI::HTTP) # handle relative redirect
-			dest = olduri + dest
-		end
+		dest = olduri + dest unless dest.is_a?(URI::HTTP) # handle relative redirect
 		get(dest)
 	end
 
@@ -169,5 +174,7 @@ if __FILE__ == $0
 	#puts test.get("http://google.com").inspect
 	
 	#TODO (Joux3): Wang returns no body data for this site!?
-	puts test.get("http://bash.org/?random1").inspect
+	h, d = test.get("http://bash.org/?random1")
+	puts d
+
 end
