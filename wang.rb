@@ -1,5 +1,5 @@
 #
-# WANG - Web Acess with No Grief v0.01
+# WANG - Web Access with No Grief v0.01
 #
 # goal: fast & no-nonsense httplib that supports keepalive & zlib
 # TODO: perhaps implement a caching system via use of if-none-match/last-modified
@@ -40,29 +40,28 @@ class WANG
 		@referer = URI.parse("http://www.google.com/")
 	end
 
-	def get url
+	def get url, referer = nil
 		@log.debug("GETTING: #{url.to_s}")
-		request("GET", url.is_a?(URI) ? url : URI.parse(url)) 
+		request("GET", url.is_a?(URI) ? url : URI.parse(url), referer) 
 	end
 
 	#TODO (Kamu): Add post/formdata
 	def post url, data, referer = nil
-		request("POST", url.is_a?(URI) ? url : URI.parse(url), data) 
+		request("POST", url.is_a?(URI) ? url : URI.parse(url), referer, data) 
 	end
 
 	private
-	def request method, uri, data = nil
+	def request method, uri, referer = nil, data = nil
 		check_socket uri.host
+
+		@referer = referer.nil? ? @referer : referer
 
 		@socket << HEADERS % [
 			method,
-			#now will correctly GET URLs with GET Params
 			uri.path.empty? ? "/" : uri.path + (uri.query.nil? ? "" : "?#{uri.query}"),
 			uri.host, @referer.to_s, ""
 		]
 
-		# TODO, fix the referer crap
-		# ?!?!? What is wrong with it? It works fine?
 		@referer = uri
 
 		headers = read_headers
@@ -173,7 +172,6 @@ if __FILE__ == $0
 	# www.whatismyip.com for testing chunked & gzipped
 	#puts test.get("http://google.com").inspect
 	
-	#TODO (Joux3): Wang returns no body data for this site!?
 	h, d = test.get("http://bash.org/?random1")
 	puts d
 
