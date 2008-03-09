@@ -77,7 +77,6 @@ class WANG
 		@log.debug("STATUS: #{status}")
 		headers = read_headers
 		@log.debug("HEADERS: #{headers.inspect}")
-
 		body = read_body(headers)
 		@log.debug("WANGJAR: #{@jar.inspect}")
 
@@ -178,9 +177,27 @@ end
 class WANGCookie
 	attr_accessor :key, :value, :domain, :path, :expires
 
-	def initialize key, value
+	def initialize key = nil, value = nil
 		@key, @value = key, value
 		@domain, @path, @expires = nil
+	end
+
+	def parse raw_cookie
+		keyval, *attributes = raw_cookie.split(/;\s*/)
+		@key, @valuee = keyval.split("=", 2)
+
+		attributes.each do |at|
+			case at
+			when /domain=(.*)/i
+				@domain = $1
+			when /expires=(.*)/i
+				@expires = $1
+			when /path=(.*)/i
+				@path = $1
+			end
+		end
+
+		self
 	end
 
 	def same? c
@@ -191,6 +208,10 @@ class WANGCookie
 	def match? uri
 		#using uri.host & uri.path, with some magic return true if relevant to the uri, false if no
 	end
+
+	def expired?
+		#useless crap, but we may aswell incorporate it
+	end
 end
 
 class WANGJar
@@ -199,20 +220,7 @@ class WANGJar
 	end
 
 	def consume raw_cookie
-		keyval, *attributes = raw_cookie.split(/;\s*/)
-		cookie = WANGCookie.new(*keyval.split("=", 2))
-
-		attributes.each do |at|
-			case at
-			when /domain=(.*)/i
-				cookie.domain = $1
-			when /expires=(.*)/i
-				cookie.expires = $1
-			when /path=(.*)/i
-				cookie.path = $1
-			end
-		end
-
+		cookie = WANGCookie.new.parse(raw_cookie)
 		add(cookie)
 	end
 
