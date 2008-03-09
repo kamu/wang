@@ -12,6 +12,7 @@ require 'stringio'
 require 'zlib'
 require 'logger'
 
+# all the predefined headers should end with \n, so they can easily be added together
 HEADERS = 
 "%s %s HTTP/1.1
 Host: %s
@@ -22,11 +23,11 @@ Accept-Encoding: gzip,deflate,identity
 Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
 Keep-Alive: 300
 Connection: keep-alive
-Referer: %s%s\n\n\n"
-COOKIES = "\nCookie: "
+Referer: %s\n"
+COOKIES = "Cookie: \n"
 FORM = 
 "Content-Type: application/x-www-form-urlencoded
-Content-Length: %s\n\n%s"
+Content-Length: %s\n"
 
 
 class WANG
@@ -60,8 +61,13 @@ class WANG
 		@socket << HEADERS % [
 			method,
 			uri.path.empty? ? "/" : uri.path + (uri.query.nil? ? "" : "?#{uri.query}"),
-			uri.host, @referer.to_s, ""
+			uri.host, @referer.to_s
 		]
+		@socket << FORM % [
+			data.length
+		] if data
+		@socket << "\n"
+		@socket << data if data
 
 		@referer = uri
 
@@ -174,14 +180,14 @@ end
 
 if __FILE__ == $0
 	test = WANG.new
-	# www.whatismyip.com for testing chunked & gzipped
+	#www.whatismyip.com for testing chunked & gzipped
 	#puts test.get("http://google.com").inspect
 	
 	#s, h, d = test.get("http://bash.org/?random1")
 	#puts d
 
-	wang = WANG.new
-	st, hd, bd = wang.get('http://pd.eggsampler.com')
+#	st, hd, bd = test.get('http://pd.eggsampler.com')
+	st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', 'mopar=dongs&joux3=king')
 	puts [st, hd].inspect
 	puts bd
 end
