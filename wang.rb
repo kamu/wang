@@ -5,12 +5,14 @@
 # goal: fast & no-nonsense httplib that supports keepalive & zlib
 # TODO: perhaps implement a caching system via use of if-none-match/last-modified
 # 	any comments Joux3? I can cook something like this up in a few minutes
+# 		timeouts
 
 require 'socket'
 require 'uri'
 require 'stringio'
 require 'zlib'
 require 'logger'
+require 'time'
 
 # all the predefined headers should end with \n, so they can easily be added together
 HEADERS = 
@@ -24,7 +26,7 @@ Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
 Keep-Alive: 300
 Connection: keep-alive
 Referer: %s\n"
-COOKIES = "Cookie: \n"
+COOKIES = "Cookie: %s\n"
 FORM = 
 "Content-Type: application/x-www-form-urlencoded
 Content-Length: %s\n"
@@ -64,8 +66,10 @@ class WANG
 			uri.path.empty? ? "/" : uri.path + (uri.query.nil? ? "" : "?#{uri.query}"),
 			uri.host, @referer.to_s
 		]
-			
-		data = data.map {|k,v| "#{URI.encode(k)}=#{URI.encode(v)}&"}.join.sub(/&\z/, "") if data.is_a?(Hash)
+		
+		@socket << COOKIES % @jar.cookies_for(uri) unless @jar.cookies_for(uri).empty?
+
+		data = data.map {|k,v| "#{URI.encode(k)}=#{URI.encode(v)}"}.join("&") if data.is_a?(Hash)
 
 		@socket << FORM % data.length if data
 		@socket << "\n"
@@ -81,7 +85,7 @@ class WANG
 		@log.debug("WANGJAR: #{@jar.inspect}")
 
 		@socket.close if headers["connection"] =~ /close/
-		
+
 		return handle_redirect(headers["location"], uri) if [301, 302, 303, 307].include?(status)
 		body = decompress(headers["content-encoding"], body)
 
@@ -184,16 +188,20 @@ class WANGCookie
 
 	def parse raw_cookie
 		keyval, *attributes = raw_cookie.split(/;\s*/)
-		@key, @valuee = keyval.split("=", 2)
+		@key, @value = keyval.split("=", 2)
 
 		attributes.each do |at|
 			case at
-			when /domain=(.*)/i
+			when /domain=(.*)/i #TODO, when domain isn't defined, assume uri.host
 				@domain = $1
 			when /expires=(.*)/i
-				@expires = $1
+				@expires = begin
+					Time.parse($1)
+				rescue
+					nil
+				end
 			when /path=(.*)/i
-				@path = $1
+				@path = $1 # TODO, when path isn't defined, assume uri.path
 			end
 		end
 
@@ -207,10 +215,28 @@ class WANGCookie
 
 	def match? uri
 		#using uri.host & uri.path, with some magic return true if relevant to the uri, false if no
+		match_domain?(uri.host) and match_path?(uri.path)
 	end
 
 	def expired?
-		#useless crap, but we may aswell incorporate it
+		@expires.is_a?(Time) ? @expires < Time.now : false
+	end
+
+	private
+	def match_domain? domain # TODO check if this fully follows the spec
+		case @domain
+		when /\d+\.\d+\.\d+\.\d+\./ # ip address
+			domain == @domain
+		when /\A\./ # so domain = site.com and subdomains could match @domain = .site.com
+					# TODO WARNING, doesn't check for stuff like .org.au, one could set a cookie like that
+			domain =~ /.*#{@domain}\z/ # || (@domain == ".#{domain}")
+		else
+			domain == @domain
+		end
+	end
+
+	def match_path? path
+		path =~ /\A#{@path}/
 	end
 end
 
@@ -234,7 +260,7 @@ class WANGJar
 	end
 
 	def cookies_for uri
-		#.join("; ")
+		@jar.select{|cookie| cookie.match?(uri)}.map{|cookie| "#{cookie.key}=#{cookie.value}"}.join("; ")
 	end
 
 	def index c
