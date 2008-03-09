@@ -1,3 +1,4 @@
+# vim: set noet:
 #
 # WANG - Web Access with No Grief v0.01
 #
@@ -64,6 +65,8 @@ class WANG
 
 		@referer = uri
 
+		status = read_status
+		@log.debug("STATUS: #{status}")
 		headers = read_headers
 		@log.debug("HEADERS: #{headers.inspect}")
 
@@ -71,23 +74,25 @@ class WANG
 
 		@socket.close if headers["connection"] =~ /close/
 		
-		return handle_redirect(headers["location"], uri) if [301, 302, 303, 307].include?(headers['code'])
+		return handle_redirect(headers["location"], uri) if [301, 302, 303, 307].include?(status)
 		body = decompress(headers["content-encoding"], body)
 
-		return headers, body
+		return status, headers, body
+	end
+
+	def read_status
+		line = @socket.gets("\n")
+		status = line.match(%r{^HTTP/1\.\d (\d+) })[1]
+		return status.to_i
 	end
 
 	def read_headers
 		headers = Hash.new
 		while header = @socket.gets("\n")
-			header.sub!(/\r?\n/, "")
+			header.chomp!
 			break if header.empty?
-			if header =~ /^HTTP\/1\.\d (\d+) (.*)$/
-				headers['code'] = $1.to_i
-			else
-				pair = header.split(": ", 2)
-				headers.store(pair[0].downcase, pair[1])
-			end
+			pair = header.split(": ", 2)
+			headers.store(pair[0].downcase, pair[1])
 		end
 
 		return headers
@@ -172,7 +177,11 @@ if __FILE__ == $0
 	# www.whatismyip.com for testing chunked & gzipped
 	#puts test.get("http://google.com").inspect
 	
-	h, d = test.get("http://bash.org/?random1")
-	puts d
+	#s, h, d = test.get("http://bash.org/?random1")
+	#puts d
 
+	wang = WANG.new
+	st, hd, bd = wang.get('http://pd.eggsampler.com')
+	puts [st, hd].inspect
+	puts bd
 end
