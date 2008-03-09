@@ -32,6 +32,7 @@ Content-Length: %s\n"
 
 class WANG
 	attr_accessor :referer
+
 	def initialize
 		@log = Logger.new(STDOUT)
 		@log.level = Logger::DEBUG
@@ -48,6 +49,7 @@ class WANG
 	end
 
 	def post url, data, referer = nil
+		@log.debug("POSTING: #{url.to_s}")
 		request("POST", url.is_a?(URI) ? url : URI.parse(url), referer, data) 
 	end
 
@@ -65,9 +67,7 @@ class WANG
 			
 		data = data.map {|k,v| "#{URI.encode(k)}=#{URI.encode(v)}&"}.join.sub(/&\z/, "") if data.is_a?(Hash)
 
-		@socket << FORM % [
-			data.length
-		] if data
+		@socket << FORM % data.length if data
 		@socket << "\n"
 		@socket << data if data
 
@@ -79,6 +79,7 @@ class WANG
 		@log.debug("HEADERS: #{headers.inspect}")
 
 		body = read_body(headers)
+		@log.debug("WANGJAR: #{@jar.inspect}")
 
 		@socket.close if headers["connection"] =~ /close/
 		
@@ -99,8 +100,13 @@ class WANG
 		while header = @socket.gets("\n")
 			header.chomp!
 			break if header.empty?
-			pair = header.split(": ", 2)
-			headers.store(pair[0].downcase, pair[1])
+
+			key, val = header.split(": ", 2)
+			if key =~ /^Set-Cookie2?$/i #do we dare consider set-cookie2 the same?
+				@jar.consume(val)
+			else
+				headers.store(key.downcase, val)
+			end
 		end
 
 		return headers
@@ -168,28 +174,84 @@ class WANG
 	end
 end
 
-#TODO (Kamu): Add cookie+cookiejar
+#TODO (Kamu): Finish cookie+cookiejar
 class WANGCookie
-	def initialize raw_cookie
-		@key, @value, @domain, @path, @expires = nil
+	attr_accessor :key, :value, :domain, :path, :expires
 
+	def initialize key, value
+		@key, @value = key, value
+		@domain, @path, @expires = nil
+	end
+
+	def same? c
+		#same cookie does not mean EQUAL cookie, could be new value&expiry for cookie in which case replace
+		self.key.eql? c.key and self.domain.eql? c.domain and self.path.eql? c.path
+	end
+
+	def match? uri
+		#using uri.host & uri.path, with some magic return true if relevant to the uri, false if no
 	end
 end
 
 class WANGJar
+	def initialize
+		@jar = []
+	end
 
+	def consume raw_cookie
+		keyval, *attributes = raw_cookie.split(/;\s*/)
+		cookie = WANGCookie.new(*keyval.split("=", 2))
+
+		attributes.each do |at|
+			case at
+			when /domain=(.*)/i
+				cookie.domain = $1
+			when /expires=(.*)/i
+				cookie.expires = $1
+			when /path=(.*)/i
+				cookie.path = $1
+			end
+		end
+
+		add(cookie)
+	end
+
+	def add c
+		i = index(c)
+		if i.nil?
+			@jar << c
+		else
+			@jar[i] = c
+		end
+	end
+
+	def cookies_for uri
+		#.join("; ")
+	end
+
+	def index c
+		@jar.each do |cookie|
+			return @jar.index(cookie) if cookie.same? c
+		end
+
+		nil
+	end
+
+	def include? c
+		not index(c).nil?
+	end
 end
 
 if __FILE__ == $0
 	test = WANG.new
-	#www.whatismyip.com for testing chunked & gzipped
-	#puts test.get("http://google.com").inspect
+	#st, hd, bd = test.get("http://www.whatismyip.com")
+	#st, hd, bd = test.get("http://google.com")
+	#st, hd, bd = test.get("http://bash.org/?random1")
+	#st, hd, bd = test.get('http://pd.eggsampler.com')
+	#st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', 'mopar=dongs&joux3=king')
+	#st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', {'mopar'=>'dongs', 'joux3'=>'king'})
+	st, hd, bd = test.get("http://www.myspace.com/")
 	
-	#s, h, d = test.get("http://bash.org/?random1")
-	#puts d
-
-#	st, hd, bd = test.get('http://pd.eggsampler.com')
-	st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', {'mopar'=>'dongs', 'joux3'=>'king'})
-	puts [st, hd].inspect
-	puts bd
+	#puts [st, hd].inspect
+	#puts bd
 end
