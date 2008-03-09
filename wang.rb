@@ -2,12 +2,14 @@
 # WANG - Web Acess with No Grief v0.01
 #
 # goal: fast & no-nonsense httplib that supports keepalive & zlib
-# maybes: perhaps implement a caching system via use of if-none-match/last-modified (should be fairly easy to do so!)
+# TODO: perhaps implement a caching system via use of if-none-match/last-modified
+# 	any comments Joux3? I can cook something like this up in a few minutes
 
 require 'socket'
 require 'uri'
 require 'stringio'
 require 'zlib'
+require 'logger'
 
 HEADERS = 
 "%s %s HTTP/1.1
@@ -21,22 +23,29 @@ Keep-Alive: 300
 Connection: keep-alive
 Referer: %s%s\n\n\n"
 COOKIES = "\nCookie: "
-DEBUG = true
+FORM = 
+"Content-Type: application/x-www-form-urlencoded
+Content-Length: %s\n\n%s"
+
 
 class WANG
 	attr_accessor :referer
 	def initialize
+		@log = Logger.new(STDOUT)
+		@log.level = Logger::DEBUG
+
 		@jar = WANGJar.new
 		@socket = nil
 		@host = nil
 		@referer = URI.parse("http://www.google.com/")
 	end
 
-	#TODO, perhaps add parenthesis around the params?
 	def get url
+		@log.debug("GETTING: #{url.to_s}")
 		request("GET", url.is_a?(URI) ? url : URI.parse(url)) 
 	end
 
+	#TODO (Kamu): Add post/formdata
 	def post url, data, referer = nil
 		request("POST", url.is_a?(URI) ? url : URI.parse(url), data) 
 	end
@@ -44,30 +53,48 @@ class WANG
 	private
 	def request method, uri, data = nil
 		check_socket uri.host
-		@socket << HEADERS % [method, uri.path.empty? ? "/" : uri.path , uri.host, @referer.to_s, ""]
-		# invalid request if "/" isn't passed for empty path
+
+		@socket << HEADERS % [
+			method,
+			#now will correctly GET URLs with GET Params
+			uri.path.empty? ? "/" : uri.path + (uri.query.nil? ? "" : "?#{uri.query}"),
+			uri.host, @referer.to_s, ""
+		]
 
 		# TODO, fix the referer crap
+		# ?!?!? What is wrong with it? It works fine?
 		@referer = uri
 
-		#read headers
+		headers = read_headers
+		@log.debug("HEADERS: #{headers.inspect}")
+
+		body = read_body(headers)
+
+		@socket.close if headers["connection"] =~ /close/
+		
+		return handle_redirect(headers["location"], uri) if [301, 302, 303, 307].include?(headers['code'])
+		body = decompress(headers["content-encoding"], body)
+
+		return headers, body
+	end
+
+	def read_headers
 		headers = Hash.new
 		while header = @socket.gets("\n")
-			header.sub!(/(\r)?\n/, "")
-			puts header if DEBUG
+			header.sub!(/\r?\n/, "")
 			break if header.empty?
 			if header =~ /^HTTP\/1\.\d (\d+) (.*)$/
 				headers['code'] = $1.to_i
 			else
-				# i just had to break this, http spec defines headers case-insensitive
 				pair = header.split(": ", 2)
 				headers.store(pair[0].downcase, pair[1])
 			end
 		end
-		puts headers.inspect if DEBUG
 
-		#read the body
-		#TODO split to methods, maybe
+		return headers
+	end
+
+	def read_body headers
 		body = ""
 		if headers["transfer-encoding"] =~ /chunked/i # read chunked body
 			while true
@@ -78,29 +105,22 @@ class WANG
 				@socket.read 2 # read the damn linechange
 			end
 			until (line = @socket.gets) and (line.nil? or line.sub(/\r?\n?/, "").empty?); end # read the chunk footers and the last line
-			# atleast server at www.whatismyip.com has \r\n in their last line
-		elsif headers["content-length"] # read body with content length
+		elsif headers["content-length"]
 			clen = headers["content-length"].to_i
 			while body.length < clen
 				body << @socket.read([clen - body.length, 4096].min)
 			end
 		end
 
-		@socket.close if headers["connection"] =~ /close/
-		
-		return handle_redirect(headers["location"], uri) if [301, 302, 303, 307].include?(headers['code'])
-		body = decompress(headers["content-encoding"], body)
-
-		return headers, body
+		return body
 	end
 
 	def handle_redirect location, olduri
-		puts location.inspect if DEBUG
+		@log.debug(location.inspect)
 		dest = URI.parse(location)
 		unless dest.is_a?(URI::HTTP) # handle relative redirect
 			dest = olduri + dest
 		end
-		dest.host = @referer.host if dest.host.nil?
 		get(dest)
 	end
 
@@ -124,13 +144,14 @@ class WANG
 	end
 
 	def connect host
-		puts "Connecting to #{host}" if DEBUG
+		@log.debug("Connecting to #{host}")
 		@socket.close unless @socket.nil? or @socket.closed?
 		@socket = TCPSocket.new(host, 'www')
 		@host = host
 	end
 end
 
+#TODO (Kamu): Add cookie+cookiejar
 class WANGCookie
 	def initialize raw_cookie
 		@key, @value, @domain, @path, @expires = nil
@@ -145,5 +166,8 @@ end
 if __FILE__ == $0
 	test = WANG.new
 	# www.whatismyip.com for testing chunked & gzipped
-	puts test.get("http://google.com")[0].inspect
+	#puts test.get("http://google.com").inspect
+	
+	#TODO (Joux3): Wang returns no body data for this site!?
+	puts test.get("http://bash.org/?random1").inspect
 end
