@@ -150,7 +150,7 @@ class WANG
 	def connect host
 		@log.debug("Connecting to #{host}")
 		@socket.close unless @socket.nil? or @socket.closed?
-		@socket = TCPSocket.new(host, 'www')
+		@socket = TCPSocket.new(host, 'http')
 		@host = host
 	end
 end
