@@ -1,18 +1,24 @@
 # vim: set noet:
 #
 # WANG - Web Access with No Grief v0.01
+#	kamu - <mr.kamu@gmail.com>
+# 	joux3 - <@>
 #
-# goal: fast & no-nonsense httplib that supports keepalive & zlib
-# TODO: perhaps implement a caching system via use of if-none-match/last-modified
-# 	any comments Joux3? I can cook something like this up in a few minutes
-# 		timeouts
+# goal: fast & no-nonsense httplib that supports keepalive & [gz](lib|zip)
+#
+# TODO: 	caching system (via if-none-match/last-modified)
+# 		timeouts - you mean keepalive timeouts? or timeout waiting for data?
+# 			regardless, both will need to be addressed
+# 		SSL (???)
 
 require 'socket'
 require 'uri'
 require 'stringio'
 require 'zlib'
 require 'logger'
-require 'time'
+require 'yaml'
+
+REDIRECTION_CODES = [301, 302, 303, 307]
 
 # all the predefined headers should end with \n, so they can easily be added together
 HEADERS = 
@@ -55,6 +61,14 @@ class WANG
 		request("POST", url.is_a?(URI) ? url : URI.parse(url), referer, data) 
 	end
 
+	def save_cookies file
+		@jar.save(file)
+	end
+
+	def load_cookies file
+		@jar.load(file)
+	end
+
 	private
 	def request method, uri, referer = nil, data = nil
 		check_socket uri.host
@@ -68,6 +82,7 @@ class WANG
 		]
 		
 		@socket << COOKIES % @jar.cookies_for(uri) unless @jar.cookies_for(uri).empty?
+		@log.debug("SENDING COOKIES: #{@jar.cookies_for(uri)}")
 
 		data = data.map {|k,v| "#{URI.encode(k)}=#{URI.encode(v)}"}.join("&") if data.is_a?(Hash)
 
@@ -86,7 +101,7 @@ class WANG
 
 		@socket.close if headers["connection"] =~ /close/
 
-		return handle_redirect(headers["location"], uri) if [301, 302, 303, 307].include?(status)
+		return handle_redirect(headers["location"], uri) if REDIRECTION_CODES.include?(status)
 		body = decompress(headers["content-encoding"], body)
 
 		return status, headers, body
@@ -106,7 +121,7 @@ class WANG
 
 			key, val = header.split(": ", 2)
 			if key =~ /^Set-Cookie2?$/i #do we dare consider set-cookie2 the same?
-				@jar.consume(val)
+				@jar.consume(val, @referer)
 			else
 				headers.store(key.downcase, val)
 			end
@@ -177,7 +192,6 @@ class WANG
 	end
 end
 
-#TODO (Kamu): Finish cookie+cookiejar
 class WANGCookie
 	attr_accessor :key, :value, :domain, :path, :expires
 
@@ -186,13 +200,13 @@ class WANGCookie
 		@domain, @path, @expires = nil
 	end
 
-	def parse raw_cookie
+	def parse raw_cookie, uri = nil
 		keyval, *attributes = raw_cookie.split(/;\s*/)
 		@key, @value = keyval.split("=", 2)
 
 		attributes.each do |at|
 			case at
-			when /domain=(.*)/i #TODO, when domain isn't defined, assume uri.host
+			when /domain=(.*)/i
 				@domain = $1
 			when /expires=(.*)/i
 				@expires = begin
@@ -201,20 +215,21 @@ class WANGCookie
 					nil
 				end
 			when /path=(.*)/i
-				@path = $1 # TODO, when path isn't defined, assume uri.path
+				@path = $1
 			end
 		end
+
+		@domain = uri.host if @domain.nil? and uri
+		@path = uri.path if @path.nil? and uri
 
 		self
 	end
 
 	def same? c
-		#same cookie does not mean EQUAL cookie, could be new value&expiry for cookie in which case replace
 		self.key.eql? c.key and self.domain.eql? c.domain and self.path.eql? c.path
 	end
 
 	def match? uri
-		#using uri.host & uri.path, with some magic return true if relevant to the uri, false if no
 		match_domain?(uri.host) and match_path?(uri.path)
 	end
 
@@ -222,21 +237,22 @@ class WANGCookie
 		@expires.is_a?(Time) ? @expires < Time.now : false
 	end
 
-	private
 	def match_domain? domain # TODO check if this fully follows the spec
 		case @domain
-		when /\d+\.\d+\.\d+\.\d+\./ # ip address
-			domain == @domain
-		when /\A\./ # so domain = site.com and subdomains could match @domain = .site.com
-					# TODO WARNING, doesn't check for stuff like .org.au, one could set a cookie like that
-			domain =~ /.*#{@domain}\z/ # || (@domain == ".#{domain}")
+		when /^\d+\.\d+\.\d+\.\d+$/ # ip address X.X.X.X not .*X.X.X.X.* :)
+			domain.eql?(@domain)
+		when /^\./ # so domain = site.com and subdomains could match @domain = .site.com
+			#strings used in a regexp should be escaped, because it thinks . is regexp
+			#also, domains should be case insensitive matches
+			domain =~ /#{Regexp.escape(@domain)}$/i
 		else
-			domain == @domain
+			domain.downcase.eql?(@domain.downcase)
 		end
 	end
 
 	def match_path? path
-		path =~ /\A#{@path}/
+		path =~ /^#{Regexp.escape(@path)}/
+		#FIXME: should a cookie path /cat match /catshouldie ? (surely not) (I need to read up the RFC on cookie paths.)
 	end
 end
 
@@ -245,8 +261,8 @@ class WANGJar
 		@jar = []
 	end
 
-	def consume raw_cookie
-		cookie = WANGCookie.new.parse(raw_cookie)
+	def consume raw_cookie, uri = nil
+		cookie = WANGCookie.new.parse(raw_cookie, uri)
 		add(cookie)
 	end
 
@@ -260,7 +276,8 @@ class WANGJar
 	end
 
 	def cookies_for uri
-		@jar.select{|cookie| cookie.match?(uri)}.map{|cookie| "#{cookie.key}=#{cookie.value}"}.join("; ")
+		@jar.select { |c| c.match?(uri) }.map{ |c| "#{c.key}=#{c.value}" }.join("; ")
+		# ^^ you have got to love ruby, if only purely for the above line.
 	end
 
 	def index c
@@ -274,6 +291,19 @@ class WANGJar
 	def include? c
 		not index(c).nil?
 	end
+
+	def save file
+		file << @jar.to_yaml
+		file.close
+	end
+
+	def load file
+		saved_jar = YAML::load(file.read)
+
+		saved_jar.each do |c|
+			add(c)
+		end
+	end
 end
 
 if __FILE__ == $0
@@ -284,7 +314,12 @@ if __FILE__ == $0
 	#st, hd, bd = test.get('http://pd.eggsampler.com')
 	#st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', 'mopar=dongs&joux3=king')
 	#st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', {'mopar'=>'dongs', 'joux3'=>'king'})
+	#st, hd, bd = test.get("http://www.myspace.com/")
+	
+	#this shit is getting seriously pro:
+	test.load_cookies(File.new("cookietest.txt", "r")) if File.exists?("cookietest.txt")
 	st, hd, bd = test.get("http://www.myspace.com/")
+	test.save_cookies(File.new("cookietest.txt", "w"))
 	
 	#puts [st, hd].inspect
 	#puts bd
