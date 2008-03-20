@@ -7,8 +7,8 @@
 # goal: fast & no-nonsense httplib that supports keepalive & [gz](lib|zip)
 #
 # TODO: 	caching system (via if-none-match/last-modified)
-# 		timeouts - you mean keepalive timeouts? or timeout waiting for data?
-# 			regardless, both will need to be addressed
+# 		keep-alive timeouts
+#		allow the creater to define if debugging data is wanted
 # 		SSL (???)
 
 require 'socket'
@@ -44,6 +44,20 @@ Content-Length: %s\n"
 
 	def self.new(*args)
 		Client.new(*args)
+	end
+
+	class TCPSocket < TCPSocket # add the timeouts
+		def initialize(*args) # allows passing of the timeout values
+			custom_args = args.shift
+			@read_timeout = custom_args[:read_timeout]
+			open_timeout = custom_args[:open_timeout]
+			Timeout::timeout(open_timeout) { super(*args) }
+		end
+
+		TIMEOUT_READ = %w{read readpartial gets}
+		TIMEOUT_READ.each {|m|
+			class_eval "def #{m}(*args); Timeout::timeout(@read_timeout) { super(*args); }; end;"
+		}
 	end
 
 	class Client
@@ -113,21 +127,21 @@ Content-Length: %s\n"
 
 			@socket.close if headers["connection"] =~ /close/
 
-				return handle_redirect(headers["location"], uri) if REDIRECTION_CODES.include?(status)
+			return handle_redirect(headers["location"], uri) if REDIRECTION_CODES.include?(status)
 			body = decompress(headers["content-encoding"], body)
 
 			return status, headers, body
 		end
 
 		def read_status
-			line = Timeout::timeout(@open_timeout) { @socket.gets("\n") }
+			line = @socket.gets("\n")
 			status = line.match(%r{^HTTP/1\.\d (\d+) })[1]
 			return status.to_i
 		end
 
 		def read_headers
 			headers = Hash.new
-			while header = Timeout::timeout(@read_timeout) { @socket.gets("\n") }
+			while header = @socket.gets("\n")
 				header.chomp!
 				break if header.empty?
 
@@ -146,26 +160,26 @@ Content-Length: %s\n"
 			body = ""
 			if headers["transfer-encoding"] =~ /chunked/i # read chunked body
 				while true
-					line =  Timeout::timeout(@read_timeout) { @socket.readline }
+					line = @socket.readline
 					chunk_len = line.slice(/[0-9a-fA-F]+/).hex
 					break if chunk_len == 0
 					while chunk_len > 0 # make sure to read the whole chunk
-						buf = Timeout::timeout(@read_timeout) { @socket.read(chunk_len) }
+						buf = @socket.read(chunk_len)
 						chunk_len -= buf.length
 						body << buf
 					end
-					Timeout::timeout(@read_timeout) { @socket.read 2 } # read the damn linechange
+					@socket.read 2 # read the damn linechange
 				end
-				until (line = Timeout::timeout(@read_timeout) { @socket.gets }) and (line.nil? or line.sub(/\r?\n?/, "").empty?); end # read the chunk footers and the last line
+				until (line = @socket.gets) and (line.nil? or line.sub(/\r?\n?/, "").empty?); end # read the chunk footers and the last line
 			elsif headers["content-length"]
 				clen = headers["content-length"].to_i
 				while body.length < clen
-					Timeout::timeout(@read_timeout) { body << @socket.read([clen - body.length, 4096].min) }
+					body << @socket.read([clen - body.length, 4096].min)
 				end
 			else #fallback that'll just consume all the data available 
 				begin
 					while true
-						Timeout::timeout(@read_timeout) { body << @socket.readpartial(4096) }
+						body << @socket.readpartial(4096)
 					end
 				rescue EOFError
 				end
@@ -203,7 +217,7 @@ Content-Length: %s\n"
 		def connect host
 			@log.debug("Connecting to #{host}")
 			@socket.close unless @socket.nil? or @socket.closed?
-			Timeout::timeout(@open_timeout) { @socket = TCPSocket.new(host, 'http') }
+			@socket = TCPSocket.new({:read_timeout=>@read_timeout, :open_timeout=>@open_timeout}, host, 'http')
 			@host = host
 		end
 	end
