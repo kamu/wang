@@ -51,12 +51,12 @@ Content-Length: %s\n"
 			custom_args = args.shift
 			@read_timeout = custom_args[:read_timeout]
 			open_timeout = custom_args[:open_timeout]
-			Timeout::timeout(open_timeout) { super(*args) }
+			Timeout::timeout(open_timeout) { super }
 		end
 
-		TIMEOUT_READ = %w{read readpartial gets}
+		TIMEOUT_READ = %w{read readpartial gets readline}
 		TIMEOUT_READ.each {|m|
-			class_eval "def #{m}(*args); Timeout::timeout(@read_timeout) { super(*args); }; end;"
+			class_eval "def #{m}(*args); Timeout::timeout(@read_timeout) { super }; end;"
 		}
 	end
 
@@ -97,13 +97,14 @@ Content-Length: %s\n"
 
 		private
 		def request method, uri, referer = nil, data = nil
+			uri.path = "/" if uri.path.empty? # fix the path to contain / right here, otherwise it should be added to cookie stuff too
 			check_socket uri.host
 
 			@referer = referer.nil? ? @referer : referer
 
 			@socket << HEADERS % [
 				method,
-				uri.path.empty? ? "/" : uri.path + (uri.query.nil? ? "" : "?#{uri.query}"),
+				uri.path + (uri.query.nil? ? "" : "?#{uri.query}"),
 				uri.host, @referer.to_s
 			]
 
@@ -251,6 +252,7 @@ Content-Length: %s\n"
 
 			@domain = uri.host if @domain.nil? and uri
 			@path = uri.path if @path.nil? and uri
+			@path.sub!(/\/$/, "") #remove the trailing /, because path matching automatically adds it
 
 			self
 		end
@@ -279,8 +281,7 @@ Content-Length: %s\n"
 		end
 
 		def match_path? path
-			path =~ /^#{Regexp.escape(@path)}/
-				#FIXME: should a cookie path /cat match /catshouldie ? (surely not) (I need to read up the RFC on cookie paths.)
+			path =~ /^#{Regexp.escape(@path)}(\/.*)?$/
 		end
 	end
 
@@ -304,8 +305,8 @@ Content-Length: %s\n"
 		end
 
 		def cookies_for uri
-			#may aswell have check for expiry of cookies.
-			@jar.select { |c| c.match?(uri) and not c.expired? }.map{ |c| "#{c.key}=#{c.value}" }.join("; ")
+			@jar -= @jar.select { |c| c.expired? }
+			@jar.select { |c| c.match?(uri) }.map{ |c| "#{c.key}=#{c.value}" }.join("; ")
 		end
 
 		def index c
