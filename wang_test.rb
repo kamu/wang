@@ -19,3 +19,21 @@ class WangTest < Test::Unit::TestCase
 		assert_equal 'text/html; charset=UTF-8', headers['content-type']
 	end
 end
+
+#if __FILE__ == $0
+#	test = WANG.new({:open_timeout=>5})
+#	#st, hd, bd = test.get("http://www.whatismyip.com")
+#	#st, hd, bd = test.get("http://google.com")
+#	#st, hd, bd = test.get("http://bash.org/?random1")
+#	#st, hd, bd = test.get('http://pd.eggsampler.com')
+#	#st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', 'mopar=dongs&joux3=king')
+#	#st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', {'mopar'=>'dongs', 'joux3'=>'king'})
+#	#st, hd, bd = test.get("http://www.myspace.com/")
+#
+#	#this shit is getting seriously pro:
+#	test.load_cookies(File.new("cookietest.txt", "r")) if File.exists?("cookietest.txt")
+#	st, hd, bd = test.get("http://www.myspace.com/")
+#	test.save_cookies(File.new("cookietest.txt", "w"))
+        #puts [st, hd].inspect
+#	#puts bd
+#	end

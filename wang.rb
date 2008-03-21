@@ -108,7 +108,7 @@ Content-Length: %s\n"
 			]
 
 			@socket << COOKIES % @jar.cookies_for(uri) unless @jar.cookies_for(uri).empty?
-			@log.debug("SENDING COOKIES: #{@jar.cookies_for(uri)}")
+			@log.debug("SENDING COOKIES: #{@jar.cookies_for(uri)}") unless @jar.cookies_for(uri).empty?
 
 			data = data.map {|k,v| "#{URI.encode(k)}=#{URI.encode(v)}"}.join("&") if data.is_a?(Hash)
 
@@ -240,10 +240,10 @@ Content-Length: %s\n"
 					@domain = $1
 				when /expires=(.*)/i
 					@expires = begin
-								   Time.parse($1)
-							   rescue
-								   nil
-							   end
+					   Time.parse($1)
+				   	rescue
+					   nil
+					end
 				when /path=(.*)/i
 					@path = $1
 				end
@@ -271,9 +271,7 @@ Content-Length: %s\n"
 			case @domain
 			when /^\d+\.\d+\.\d+\.\d+$/ # ip address X.X.X.X not .*X.X.X.X.* :)
 				domain.eql?(@domain)
-			when /^\./ # so domain = site.com and subdomains could match @domain = .site.com
-				#strings used in a regexp should be escaped, because it thinks . is regexp
-				#also, domains should be case insensitive matches
+			when /^\./ # so domain = site.com and subdomains could match @domain to .site.com
 				domain =~ /#{Regexp.escape(@domain)}$/i
 			else
 				domain.downcase.eql?(@domain.downcase)
@@ -306,8 +304,8 @@ Content-Length: %s\n"
 		end
 
 		def cookies_for uri
-			@jar.select { |c| c.match?(uri) }.map{ |c| "#{c.key}=#{c.value}" }.join("; ")
-			# ^^ you have got to love ruby, if only purely for the above line.
+			#may aswell have check for expiry of cookies.
+			@jar.select { |c| c.match?(uri) and not c.expired? }.map{ |c| "#{c.key}=#{c.value}" }.join("; ")
 		end
 
 		def index c
@@ -335,23 +333,4 @@ Content-Length: %s\n"
 			end
 		end
 	end
-end
-
-if __FILE__ == $0
-	test = WANG.new({:open_timeout=>5})
-	#st, hd, bd = test.get("http://www.whatismyip.com")
-	#st, hd, bd = test.get("http://google.com")
-	#st, hd, bd = test.get("http://bash.org/?random1")
-	#st, hd, bd = test.get('http://pd.eggsampler.com')
-	#st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', 'mopar=dongs&joux3=king')
-	#st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', {'mopar'=>'dongs', 'joux3'=>'king'})
-	#st, hd, bd = test.get("http://www.myspace.com/")
-
-	#this shit is getting seriously pro:
-	test.load_cookies(File.new("cookietest.txt", "r")) if File.exists?("cookietest.txt")
-	st, hd, bd = test.get("http://www.myspace.com/")
-	test.save_cookies(File.new("cookietest.txt", "w"))
-
-	#puts [st, hd].inspect
-	#puts bd
 end
