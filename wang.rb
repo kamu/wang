@@ -7,8 +7,7 @@
 # goal: fast & no-nonsense httplib that supports keepalive & [gz](lib|zip)
 #
 # TODO: 	caching system (via if-none-match/last-modified)
-# 		keep-alive timeouts
-#		allow the creater to define if debugging data is wanted
+# 		keep-alive timeouts (probably don't need seeing as the server disconnects anyway, and we handle reconnects already)
 # 		SSL (???)
 
 require 'socket'
@@ -65,7 +64,7 @@ Content-Length: %s\n"
 
 		def initialize args = {}
 			@log = Logger.new(STDOUT)
-			@log.level = Logger::DEBUG
+			@log.level = args[:debug] ? Logger::DEBUG : Logger::WARN
 
 			@jar = Jar.new
 			@socket = nil
@@ -271,7 +270,7 @@ Content-Length: %s\n"
 
 		def match_domain? domain # TODO check if this fully follows the spec
 			case @domain
-			when /^\d+\.\d+\.\d+\.\d+$/ # ip address X.X.X.X not .*X.X.X.X.* :)
+			when /^\d+\.\d+\.\d+\.\d+$/ # ip address
 				domain.eql?(@domain)
 			when /^\./ # so domain = site.com and subdomains could match @domain to .site.com
 				domain =~ /#{Regexp.escape(@domain)}$/i
@@ -281,7 +280,7 @@ Content-Length: %s\n"
 		end
 
 		def match_path? path
-			path =~ /^#{Regexp.escape(@path)}(\/.*)?$/
+			path =~ /^#{Regexp.escape(@path)}(?:\/.*)?$/
 		end
 	end
 
