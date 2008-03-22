@@ -18,6 +18,15 @@ class WangTest < Test::Unit::TestCase
 		assert headers.is_a?(Hash)
 		assert_equal 'text/html; charset=UTF-8', headers['content-type']
 	end
+
+	def test_cookie_paths
+		cookie = WANG::Cookie.new.parse("x=y; path=/lamo/")
+		assert cookie.match_path?("/lamo")
+		assert !cookie.match_path?("/lamoa")
+		assert cookie.match_path?("/lamo/aaa/bb")
+		assert !cookie.match_path?("/lam")
+		assert !cookie.match_path?("/lam/oo")
+	end
 end
 
 #if __FILE__ == $0

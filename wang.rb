@@ -17,12 +17,15 @@ require 'zlib'
 require 'logger'
 require 'yaml'
 require 'timeout'
+require 'cgi'
 
 module WANG
 
 	REDIRECTION_CODES = [301, 302, 303, 307]
+	DEFAULT_OPEN_TIMEOUT = 60
+	DEFAULT_READ_TIMEOUT = 60
 
-	# all the predefined headers should end with \n, so they can easily be added together
+	# all the predefined headers should end with \n, so they can easily be added together :nodoc:
 	HEADERS = 
 "%s %s HTTP/1.1
 Host: %s
@@ -33,19 +36,19 @@ Accept-Encoding: gzip,deflate,identity
 Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
 Keep-Alive: 300
 Connection: keep-alive
-Referer: %s\n"
-	COOKIES = "Cookie: %s\n"
-	FORM = 
-"Content-Type: application/x-www-form-urlencoded
-Content-Length: %s\n"
-	DEFAULT_OPEN_TIMEOUT = 60
-	DEFAULT_READ_TIMEOUT = 60
+Referer: %s\n" #:nodoc:
+	COOKIES = "Cookie: %s\n" #:nodoc:
+	FORM = "Content-Type: application/x-www-form-urlencoded
+Content-Length: %s\n" #:nodoc:
 
+	# Creates a new instance of WANG::Client
+	#
+	# For more info, check WANG::Client.new 
 	def self.new(*args)
 		Client.new(*args)
 	end
 
-	class TCPSocket < TCPSocket # add the timeouts
+	class TCPSocket < TCPSocket # add the timeouts :nodoc:
 		def initialize(*args) # allows passing of the timeout values
 			custom_args = args.shift
 			@read_timeout = custom_args[:read_timeout]
@@ -62,6 +65,12 @@ Content-Length: %s\n"
 	class Client
 		attr_accessor :referer
 
+		# Creates a new instance of WANG::Client
+		# 
+		# Accepts a hash containing named arguments. Arguments:
+		# [:read_timeout] defines the timeout for socket reading in seconds
+		# [:open_timeout] defines the timeout for connecting in seconds
+		# [:debug] any value passed defines debug mode
 		def initialize args = {}
 			@log = Logger.new(STDOUT)
 			@log.level = args[:debug] ? Logger::DEBUG : Logger::WARN
@@ -76,22 +85,32 @@ Content-Length: %s\n"
 			@log.debug("Using #{@read_timeout} as the read timeout and #{@open_timeout} as the open timeout")
 		end
 
+		# Fetches a page using GET method
+		#
+		# If passed, referer will be sent to the server. Otherwise the last visited URL will be sent to the server as the referer.
 		def get url, referer = nil
 			@log.debug("GETTING: #{url.to_s}")
 			request("GET", url.is_a?(URI) ? url : URI.parse(url), referer) 
 		end
 
+		# Fetches a page using POST method
+		#
+		# Data can either be a String or a Hash. If passed a String, it will send it to the server as the POST data. If passed a Hash, it will be converted to post data and correctly escaped.
+		#
+		# If passed, referer will be sent to the server. Otherwise the last visited URL will be sent to the server as the referer.
 		def post url, data, referer = nil
 			@log.debug("POSTING: #{url.to_s}")
 			request("POST", url.is_a?(URI) ? url : URI.parse(url), referer, data) 
 		end
 
-		def save_cookies file
-			@jar.save(file)
+		# Saves cookie from this Client instance's Jar to the given io
+		def save_cookies io
+			@jar.save(io)
 		end
 
-		def load_cookies file
-			@jar.load(file)
+		# Loads cookies to this Client instance's Jar from the given io
+		def load_cookies io
+			@jar.load(io)
 		end
 
 		private
@@ -110,7 +129,7 @@ Content-Length: %s\n"
 			@socket << COOKIES % @jar.cookies_for(uri) unless @jar.cookies_for(uri).empty?
 			@log.debug("SENDING COOKIES: #{@jar.cookies_for(uri)}") unless @jar.cookies_for(uri).empty?
 
-			data = data.map {|k,v| "#{URI.encode(k)}=#{URI.encode(v)}"}.join("&") if data.is_a?(Hash)
+			data = data.map {|k,v| "#{CGI.escape(k)}=#{CGI.escape(v)}"}.join("&") if data.is_a?(Hash)
 
 			@socket << FORM % data.length if data
 			@socket << "\n"
@@ -320,13 +339,13 @@ Content-Length: %s\n"
 			not index(c).nil?
 		end
 
-		def save file
-			file << @jar.to_yaml
-			file.close
+		def save io
+			io << @jar.to_yaml
+			io.close
 		end
 
-		def load file
-			saved_jar = YAML::load(file.read)
+		def load io
+			saved_jar = YAML::load(io)
 
 			saved_jar.each do |c|
 				add(c)
