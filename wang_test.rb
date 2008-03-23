@@ -2,6 +2,12 @@
 
 require 'test/unit'
 require 'wang'
+require 'wang_test_server'
+
+$test_server = WANGTestServer.new
+Thread.new do
+	$test_server.start
+end
 
 class WangTest < Test::Unit::TestCase
 	def setup
@@ -19,10 +25,16 @@ class WangTest < Test::Unit::TestCase
 		assert_equal 'text/html; charset=UTF-8', headers['content-type']
 	end
 
+	def test_supports_custom_ports
+		assert_nothing_raised { @client.get('http://localhost:8080/redirect') }
+	end
+
 	def test_follows_redirect
-		@client.get('http://google.com/')
-		assert_equal 'http://google.com/', @client.responses.first.uri.to_s
-		assert_not_equal 'http://google.com/', @client.responses.last.uri.to_s
+		status, headers, body = @client.get('http://localhost:8080/redirect')
+		assert_equal 'http://localhost:8080/redirect', @client.responses.first.uri.to_s
+		assert_equal 'http://localhost:8080/redirected/elsewhere', @client.responses.last.uri.to_s
+		assert_equal 200, status
+		assert_equal "The redirect worked.\n", body
 	end
 
 	def test_posts_data_using_query_string
