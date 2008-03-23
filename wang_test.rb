@@ -15,14 +15,14 @@ class WangTest < Test::Unit::TestCase
 	end
 
 	def test_returns_success_from_google
-		status, headers, body = @client.get('http://www.google.com')
+		status, headers, body = @client.get('http://localhost:8080/')
 		assert_equal 200, status
 	end
 
 	def test_returns_headers_hash
-		status, headers, body = @client.get('http://www.google.com')
+		status, headers, body = @client.get('http://localhost:8080/')
 		assert headers.is_a?(Hash)
-		assert_equal 'text/html; charset=UTF-8', headers['content-type']
+		assert_equal 'text/html', headers['content-type']
 	end
 
 	def test_supports_custom_ports
@@ -38,17 +38,17 @@ class WangTest < Test::Unit::TestCase
 	end
 
 	def test_posts_data_using_query_string
-		status, headers, body = @client.post('http://emmanuel.faivre.free.fr/phpinfo.php', 'mopar=dongs&joux3=king')
+		status, headers, body = @client.post('http://localhost:8080/canhaspost', 'mopar=dongs&joux3=king')
 		assert_equal 200, status
-		assert body =~ /_POST\["mopar"\].*dongs/
-		assert body =~ /_POST\["joux3"\].*king/
+		assert body =~ /mopar => dongs/
+		assert body =~ /joux3 => king/
 	end
 
 	def test_posts_data_using_hash
-		status, headers, body = @client.post('http://emmanuel.faivre.free.fr/phpinfo.php', {'mopar'=>'dongs', 'joux3'=>'king'})
+		status, headers, body = @client.post('http://localhost:8080/canhaspost', {'mopar'=>'dongs', 'joux3'=>'king'})
 		assert_equal 200, status
-		assert body =~ /_POST\["mopar"\].*dongs/
-		assert body =~ /_POST\["joux3"\].*king/
+		assert body =~ /mopar => dongs/
+		assert body =~ /joux3 => king/
 	end
 
 	def test_cookie_domain

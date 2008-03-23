@@ -23,6 +23,18 @@ class WANGTestServer
 			response['Content-Type'] = 'text/plain'
 			raise WEBrick::HTTPStatus::OK
 		end
+		@server.mount_proc('/') do |request, response|
+			response.body = "<html><head><title>hi</title></head><body><p>Hullo!</p></body></html>"
+			response['Content-Type'] = 'text/html'
+			raise WEBrick::HTTPStatus::OK
+		end
+		@server.mount_proc('/canhaspost') do |request, response|
+			response.body = request.query.map do |key, val|
+				"#{key} => #{val}"
+			end.join("\n")
+			response['Content-Type'] = 'text/plain'
+			raise WEBrick::HTTPStatus::OK
+		end
 	end
 
 	def start
