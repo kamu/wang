@@ -24,22 +24,6 @@ module WANG
 	DEFAULT_OPEN_TIMEOUT = 60
 	DEFAULT_READ_TIMEOUT = 60
 
-	# all the predefined headers should end with \n, so they can easily be added together :nodoc:
-	HEADERS = 
-"%s %s HTTP/1.1
-Host: %s
-User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.12) Gecko/20080201 Firefox/2.0.0.12
-Accept: application/x-shockwave-flash,text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5
-Accept-Language: en-us,en;q=0.5
-Accept-Encoding: gzip,deflate,identity
-Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
-Keep-Alive: 300
-Connection: keep-alive
-Referer: %s\n" #:nodoc:
-	COOKIES = "Cookie: %s\n" #:nodoc:
-	FORM = "Content-Type: application/x-www-form-urlencoded
-Content-Length: %s\n" #:nodoc:
-
 	# Creates a new instance of WANG::Client
 	#
 	# For more info, check WANG::Client.new 
@@ -119,18 +103,19 @@ Content-Length: %s\n" #:nodoc:
 
 			@referer = referer.nil? ? @referer : referer
 
-			@socket << HEADERS % [
-				method,
-				uri.path + (uri.query.nil? ? "" : "?#{uri.query}"),
-				uri.host, @referer.to_s
-			]
+			@socket << generate_request_headers(method, uri, @referer)
 
-			@socket << COOKIES % @jar.cookies_for(uri) unless @jar.cookies_for(uri).empty?
-			@log.debug("SENDING COOKIES: #{@jar.cookies_for(uri)}") unless @jar.cookies_for(uri).empty?
+			if @jar.has_cookies_for?(uri)
+				@socket << "Cookie: #{@jar.cookies_for(uri)}\n"
+				@log.debug("SENDING COOKIES: #{@jar.cookies_for(uri)}")
+			end
 
 			data = data.map {|k,v| "#{CGI.escape(k)}=#{CGI.escape(v)}"}.join("&") if data.is_a?(Hash)
 
-			@socket << FORM % data.length if data
+			if data
+				@socket << "Content-Type: application/x-www-form-urlencoded\n"
+				@socket << "Content-Length: #{data.length}\n"
+			end
 			@socket << "\n"
 			@socket << data if data
 
@@ -149,6 +134,22 @@ Content-Length: %s\n" #:nodoc:
 			body = decompress(headers["content-encoding"], body)
 
 			return status, headers, body
+		end
+
+		def generate_request_headers(method, uri, referer)
+			request_path = uri.path + (uri.query.nil? ? '' : "?#{uri.query}")
+			[
+				"#{method} #{request_path} HTTP/1.1",
+				"Host: #{uri.host}",
+				"User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.12) Gecko/20080201 Firefox/2.0.0.12",
+				"Accept: application/x-shockwave-flash,text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5",
+				"Accept-Language: en-us,en;q=0.5",
+				"Accept-Encoding: gzip,deflate,identity",
+				"Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7",
+				"Keep-Alive: 300",
+				"Connection: keep-alive",
+				"Referer: #{referer}\n" # an extra \n is needed for the last entry
+			].join("\n")
 		end
 
 		def read_status
@@ -324,6 +325,10 @@ Content-Length: %s\n" #:nodoc:
 			else
 				@jar[i] = c
 			end
+		end
+
+		def has_cookies_for? uri
+			not cookies_for(uri).empty?
 		end
 
 		def cookies_for uri

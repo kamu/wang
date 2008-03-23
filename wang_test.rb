@@ -24,6 +24,20 @@ class WangTest < Test::Unit::TestCase
 		assert_not_equal 'http://google.com', @client.referer.to_s
 	end
 
+	def test_posts_data_using_query_string
+		status, headers, body = @client.post('http://emmanuel.faivre.free.fr/phpinfo.php', 'mopar=dongs&joux3=king')
+		assert_equal 200, status
+		assert body =~ /_POST\["mopar"\].*dongs/
+		assert body =~ /_POST\["joux3"\].*king/
+	end
+
+	def test_posts_data_using_hash
+		status, headers, body = @client.post('http://emmanuel.faivre.free.fr/phpinfo.php', {'mopar'=>'dongs', 'joux3'=>'king'})
+		assert_equal 200, status
+		assert body =~ /_POST\["mopar"\].*dongs/
+		assert body =~ /_POST\["joux3"\].*king/
+	end
+
 	def test_cookie_paths
 		cookie = WANG::Cookie.new.parse("x=y; path=/lamo/")
 		assert cookie.match_path?("/lamo")
@@ -36,18 +50,18 @@ end
 
 #if __FILE__ == $0
 #	test = WANG.new({:open_timeout=>5})
-#	#st, hd, bd = test.get("http://www.whatismyip.com")
-#	#st, hd, bd = test.get("http://google.com")
-#	#st, hd, bd = test.get("http://bash.org/?random1")
-#	#st, hd, bd = test.get('http://pd.eggsampler.com')
-#	#st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', 'mopar=dongs&joux3=king')
-#	#st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', {'mopar'=>'dongs', 'joux3'=>'king'})
-#	#st, hd, bd = test.get("http://www.myspace.com/")
+#	st, hd, bd = test.get("http://www.whatismyip.com")
+#	st, hd, bd = test.get("http://google.com")
+#	st, hd, bd = test.get("http://bash.org/?random1")
+#	st, hd, bd = test.get('http://pd.eggsampler.com')
+#	st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', 'mopar=dongs&joux3=king')
+#	st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', {'mopar'=>'dongs', 'joux3'=>'king'})
+#	st, hd, bd = test.get("http://www.myspace.com/")
 #
 #	#this shit is getting seriously pro:
 #	test.load_cookies(File.new("cookietest.txt", "r")) if File.exists?("cookietest.txt")
 #	st, hd, bd = test.get("http://www.myspace.com/")
 #	test.save_cookies(File.new("cookietest.txt", "w"))
-        #puts [st, hd].inspect
-#	#puts bd
-#	end
+#	puts [st, hd].inspect
+#	puts bd
+#end
