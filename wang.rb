@@ -163,9 +163,10 @@ module WANG
 
 		def generate_request_headers method, uri, referer
 			request_path = uri.path + (uri.query.nil? ? '' : "?#{uri.query}")
+			request_host = uri.host + (uri.port ? ":#{uri.port}" : '')
 			[
 				"#{method} #{request_path} HTTP/1.1",
-				"Host: #{uri.host}",
+				"Host: #{request_host}",
 				"User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.12) Gecko/20080201 Firefox/2.0.0.12",
 				"Accept: application/x-shockwave-flash,text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5",
 				"Accept-Language: en-us,en;q=0.5",
@@ -264,7 +265,7 @@ module WANG
 		end
 
 		def connect host, port = 'http'
-			@log.debug("Connecting to #{host}")
+			@log.debug("Connecting to #{host}:#{port}")
 			@socket.close unless @socket.nil? or @socket.closed?
 			@socket = TCPSocket.new({:read_timeout => @read_timeout, :open_timeout => @open_timeout}, host, port)
 			@host = host

@@ -11,7 +11,7 @@ end
 
 class WangTest < Test::Unit::TestCase
 	def setup
-		@client = WANG.new(:debug => true )
+		@client = WANG.new(:debug => true)
 	end
 
 	def test_returns_success_from_google

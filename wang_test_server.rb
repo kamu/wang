@@ -1,9 +1,19 @@
 # vim: set noet:
 require 'webrick'
+require 'stringio'
 
 class WANGTestServer
+	class BlackHole
+		def <<(x)
+		end
+	end
+
 	def initialize
-		@server = WEBrick::HTTPServer.new(:Port => 8080) 
+		# blows up webrick when the tests are running, but dunno why:
+		# logs = [WEBrick::Log.new(BlackHole.new), WEBrick::Log.new(BlackHole.new)]
+		# @server = WEBrick::HTTPStatus.new(:Port => 8080, :Logger => logs[0], :AccessLog => logs[1])
+
+		@server = WEBrick::HTTPServer.new(:Port => 8080)
 		@server.mount_proc('/redirect') do |request, response|
 			response['Location'] = '/redirected/elsewhere'
 			raise WEBrick::HTTPStatus::MovedPermanently
