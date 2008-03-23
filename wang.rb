@@ -141,17 +141,17 @@ module WANG
 			@socket << generate_request_headers(method, uri, referer)
 
 			if @jar.has_cookies_for?(uri)
-				@socket << "Cookie: #{@jar.cookies_for(uri)}\n"
+				@socket << "Cookie: #{@jar.cookies_for(uri)}\r\n"
 				@log.debug("SENDING COOKIES: #{@jar.cookies_for(uri)}")
 			end
 
 			data = data.map {|k,v| "#{Utils.escape(k)}=#{Utils.escape(v)}"}.join("&") if data.is_a?(Hash)
 
 			if data
-				@socket << "Content-Type: application/x-www-form-urlencoded\n"
-				@socket << "Content-Length: #{data.length}\n"
+				@socket << "Content-Type: application/x-www-form-urlencoded\r\n"
+				@socket << "Content-Length: #{data.length}\r\n"
 			end
-			@socket << "\n"
+			@socket << "\r\n"
 			@socket << data if data
 
 			status = read_status
@@ -184,8 +184,8 @@ module WANG
 				"Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7",
 				"Keep-Alive: 300",
 				"Connection: keep-alive",
-				referer.nil? ? "" : "Referer: #{referer}\n" # an extra \n is needed for the last entry
-			].join("\n")
+				referer.nil? ? "" : "Referer: #{referer}\r\n" # an extra \r\n is needed for the last entry
+			].join("\r\n")
 		end
 
 		def read_status

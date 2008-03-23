@@ -22,7 +22,7 @@ class WANGTestServer
 
 	def initialize
 		log = WEBrick::Log.new(BlackHole.new)
-		@server = WEBrick::HTTPServer.new(:Port => 8080, :Log => log, :AccessLog => [], :Logger => log)
+		@server = WEBrick::HTTPServer.new(:Port => 8080, :AccessLog => [], :Logger => log)
 
 		@server.mount_proc('/redirect') do |request, response|
 			response['Location'] = '/redirected/elsewhere'
