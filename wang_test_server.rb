@@ -2,6 +2,15 @@
 require 'webrick'
 require 'stringio'
 
+class HTTPMethodServlet < WEBrick::HTTPServlet::AbstractServlet
+	%w(HEAD GET POST PUT DELETE).each do |http_method|
+		define_method("do_#{http_method}") do |request, response|
+			response['Method-Used'] = request.request_method
+			raise WEBrick::HTTPStatus::OK
+		end
+	end
+end
+
 class WANGTestServer
 	class BlackHole
 		def <<(x)
@@ -35,6 +44,7 @@ class WANGTestServer
 			response['Content-Type'] = 'text/plain'
 			raise WEBrick::HTTPStatus::OK
 		end
+		@server.mount('/whatmethod', HTTPMethodServlet)
 	end
 
 	def start

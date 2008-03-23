@@ -51,6 +51,26 @@ class WangTest < Test::Unit::TestCase
 		assert body =~ /joux3 => king/
 	end
 
+	def test_get_http_method
+		status, headers, body = @client.get('http://localhost:8080/whatmethod')
+		assert_equal 'GET', headers['method-used']
+	end
+
+	def test_post_http_method
+		status, headers, body = @client.post('http://localhost:8080/whatmethod', {'some' => 'query'})
+		assert_equal 'POST', headers['method-used']
+	end
+
+	def test_put_http_method
+		status, headers, body = @client.put('http://localhost:8080/whatmethod', {'some' => 'query'})
+		assert_equal 'PUT', headers['method-used']
+	end
+
+	def test_delete_http_method
+		status, headers, body = @client.delete('http://localhost:8080/whatmethod')
+		assert_equal 'DELETE', headers['method-used']
+	end
+
 	def test_cookie_domain
 		cookie = WANG::Cookie.new.parse("x=y; domain=cat.com")
 		assert cookie.match_domain?("cat.com")
