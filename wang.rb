@@ -72,7 +72,7 @@ module WANG
 		#
 		# If passed, referer will be sent to the server. Otherwise the last visited URL will be sent to the server as the referer.
 		def get url, referer = nil
-			@log.debug("GETTING: #{url.to_s}")
+			@log.debug("GET: #{url.to_s}")
 			request("GET", url.is_a?(URI) ? url : URI.parse(url), referer) 
 		end
 
@@ -82,8 +82,20 @@ module WANG
 		#
 		# If passed, referer will be sent to the server. Otherwise the last visited URL will be sent to the server as the referer.
 		def post url, data, referer = nil
-			@log.debug("POSTING: #{url.to_s}")
+			@log.debug("POST: #{url.to_s}")
 			request("POST", url.is_a?(URI) ? url : URI.parse(url), referer, data) 
+		end
+
+		# Issues a PUT request. See post for more details.
+		def put url, data, referer = nil
+			@log.debug("PUT: #{url.to_s}")
+			request("PUT", url.is_a?(URI) ? url : URI.parse(url), referer, data)
+		end
+
+		# Issues a DELETE request.
+		def delete url, referer = nil
+			@log.debug("DELETE: #{url.to_s}")
+			request("DELETE", url.is_a?(URI) ? url : URI.parse(url), referer)
 		end
 
 		# Saves cookie from this Client instance's Jar to the given io
