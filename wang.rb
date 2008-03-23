@@ -27,12 +27,12 @@ module WANG
 	# Creates a new instance of WANG::Client
 	#
 	# For more info, check WANG::Client.new 
-	def self.new(*args)
+	def self.new *args
 		Client.new(*args)
 	end
 
 	class TCPSocket < TCPSocket # add the timeouts :nodoc:
-		def initialize(*args) # allows passing of the timeout values
+		def initialize *args # allows passing of the timeout values
 			custom_args = args.shift
 			@read_timeout = custom_args[:read_timeout]
 			open_timeout = custom_args[:open_timeout]
@@ -61,7 +61,7 @@ module WANG
 			@jar = Jar.new
 			@socket = nil
 			@host = nil
-			@responses = [Response.new("GET", URI.parse("http://www.google.com/"), 200, {})]
+			@responses = []
 			@read_timeout = args[:read_timeout] || DEFAULT_READ_TIMEOUT
 			@open_timeout = args[:open_timeout] || DEFAULT_OPEN_TIMEOUT
 
@@ -101,8 +101,8 @@ module WANG
 			uri.path = "/" if uri.path.empty? # fix the path to contain / right here, otherwise it should be added to cookie stuff too
 			check_socket uri.host
 
-			referer = referer || @responses.last.uri
-			responses.clear if not redirect?(@responses.last.status)
+			referer = referer || @responses.last.nil? ? nil : @responses.last.uri
+			responses.clear if not responses.empty? and not redirect?(@responses.last.status)
 
 			@socket << generate_request_headers(method, uri, referer)
 
@@ -122,7 +122,7 @@ module WANG
 
 			status = read_status
 			@log.debug("STATUS: #{status}")
-			headers = read_headers
+			headers = read_headers(uri)
 			@log.debug("HEADERS: #{headers.inspect}")
 			body = read_body(headers)
 			@log.debug("WANGJAR: #{@jar.inspect}")
@@ -137,7 +137,7 @@ module WANG
 			return status, headers, body
 		end
 
-		def generate_request_headers(method, uri, referer)
+		def generate_request_headers method, uri, referer
 			request_path = uri.path + (uri.query.nil? ? '' : "?#{uri.query}")
 			[
 				"#{method} #{request_path} HTTP/1.1",
@@ -149,7 +149,7 @@ module WANG
 				"Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7",
 				"Keep-Alive: 300",
 				"Connection: keep-alive",
-				"Referer: #{referer}\n" # an extra \n is needed for the last entry
+				referer.nil? ? "" : "Referer: #{referer}\n" # an extra \n is needed for the last entry
 			].join("\n")
 		end
 
@@ -159,7 +159,7 @@ module WANG
 			return status.to_i
 		end
 
-		def read_headers
+		def read_headers uri
 			headers = Hash.new
 			while header = @socket.gets("\n")
 				header.chomp!
@@ -167,7 +167,7 @@ module WANG
 
 				key, val = header.split(": ", 2)
 				if key =~ /^Set-Cookie2?$/i #do we dare consider set-cookie2 the same?
-					@jar.consume(val, @referer)
+					@jar.consume(val, uri)
 				else
 					headers.store(key.downcase, val)
 				end
@@ -367,14 +367,14 @@ module WANG
 		#we don't require 'cgi' round these 'ere parts
 
 		# URL-encode a string.
-		def self.escape(string)
+		def self.escape string
 			string.gsub(/([^ a-zA-Z0-9_.-]+)/n) do
 				'%' + $1.unpack('H2' * $1.size).join('%').upcase
 			end.tr(' ', '+')
 		end
 			
 		# URL-decode a string.
-		def self.unescape(string)
+		def self.unescape string
 			string.tr('+', ' ').gsub(/((?:%[0-9a-fA-F]{2})+)/n) do
 				[$1.delete('%')].pack('H*')
 			end
