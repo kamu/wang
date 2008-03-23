@@ -146,7 +146,7 @@ Content-Length: %s\n" #:nodoc:
 
 			@socket.close if headers["connection"] =~ /close/
 
-			return handle_redirect(headers["location"], uri) if REDIRECTION_CODES.include?(status)
+			return follow_redirect(headers["location"], uri) if REDIRECTION_CODES.include?(status)
 			body = decompress(headers["content-encoding"], body)
 
 			return status, headers, body
@@ -207,7 +207,7 @@ Content-Length: %s\n" #:nodoc:
 			return body
 		end
 
-		def handle_redirect location, olduri
+		def follow_redirect location, olduri
 			@log.debug(location.inspect)
 			dest = URI.parse(location)
 			dest = olduri + dest unless dest.is_a?(URI::HTTP) # handle relative redirect
