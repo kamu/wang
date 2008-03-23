@@ -11,7 +11,7 @@ end
 
 class WangTest < Test::Unit::TestCase
 	def setup
-		@client = WANG.new(:debug => true)
+		@client = WANG.new(:debug => true, :read_timeout=>0.9) # small read timeout shouldn't fail local tests
 	end
 
 	def test_returns_success_from_google
@@ -84,6 +84,12 @@ class WangTest < Test::Unit::TestCase
 	def test_delete_requests_return_nil_body
 		status, headers, body = @client.delete('http://localhost:8080/whatmethod')
 		assert_equal nil, body
+	end
+
+	def test_read_timeout
+		assert_raise Timeout::Error do
+			@client.get('http://localhost:8080/timeout')
+		end
 	end
 
 	def test_cookie_domain

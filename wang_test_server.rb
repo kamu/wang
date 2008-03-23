@@ -21,11 +21,9 @@ class WANGTestServer
 	end
 
 	def initialize
-		# blows up webrick when the tests are running, but dunno why:
-		# logs = [WEBrick::Log.new(BlackHole.new), WEBrick::Log.new(BlackHole.new)]
-		# @server = WEBrick::HTTPStatus.new(:Port => 8080, :Logger => logs[0], :AccessLog => logs[1])
+		log = WEBrick::Log.new(BlackHole.new)
+		@server = WEBrick::HTTPServer.new(:Port => 8080, :Log => log, :AccessLog => [], :Logger => log)
 
-		@server = WEBrick::HTTPServer.new(:Port => 8080)
 		@server.mount_proc('/redirect') do |request, response|
 			response['Location'] = '/redirected/elsewhere'
 			raise WEBrick::HTTPStatus::MovedPermanently
@@ -45,6 +43,10 @@ class WANGTestServer
 				"#{key} => #{val}"
 			end.join("\n")
 			response['Content-Type'] = 'text/plain'
+			raise WEBrick::HTTPStatus::OK
+		end
+		@server.mount_proc('/timeout') do |request, response|
+			sleep 1
 			raise WEBrick::HTTPStatus::OK
 		end
 		@server.mount('/whatmethod', HTTPMethodServlet)
