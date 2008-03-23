@@ -19,6 +19,11 @@ class WangTest < Test::Unit::TestCase
 		assert_equal 'text/html; charset=UTF-8', headers['content-type']
 	end
 
+	def test_follows_redirect
+		@client.get('http://google.com')
+		assert_not_equal 'http://google.com', @client.referer.to_s
+	end
+
 	def test_cookie_paths
 		cookie = WANG::Cookie.new.parse("x=y; path=/lamo/")
 		assert cookie.match_path?("/lamo")

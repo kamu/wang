@@ -21,7 +21,6 @@ require 'cgi'
 
 module WANG
 
-	REDIRECTION_CODES = [301, 302, 303, 307]
 	DEFAULT_OPEN_TIMEOUT = 60
 	DEFAULT_READ_TIMEOUT = 60
 
@@ -146,7 +145,7 @@ Content-Length: %s\n" #:nodoc:
 
 			@socket.close if headers["connection"] =~ /close/
 
-			return follow_redirect(headers["location"], uri) if REDIRECTION_CODES.include?(status)
+			return follow_redirect(headers["location"], uri) if redirect?(status)
 			body = decompress(headers["content-encoding"], body)
 
 			return status, headers, body
@@ -205,6 +204,11 @@ Content-Length: %s\n" #:nodoc:
 			end
 
 			return body
+		end
+
+		# Given an HTTP status code, returns whether it signifies a redirect.
+		def redirect? status
+			status.to_i / 100 == 3
 		end
 
 		def follow_redirect location, olduri
