@@ -18,6 +18,18 @@ require 'logger'
 require 'yaml'
 require 'timeout'
 
+class URI::Generic
+	def to_uri
+		self
+	end
+end
+
+class String
+	def to_uri
+		URI.parse(self)
+	end
+end
+
 module WANG
 	Response = Struct.new(:method, :uri, :status, :headers)
 
@@ -73,7 +85,7 @@ module WANG
 		# If passed, referer will be sent to the server. Otherwise the last visited URL will be sent to the server as the referer.
 		def get url, referer = nil
 			@log.debug("GET: #{url.to_s}")
-			request("GET", url.is_a?(URI) ? url : URI.parse(url), referer) 
+			request("GET", url.to_uri, referer)
 		end
 
 		# Fetches a page using POST method
@@ -83,19 +95,19 @@ module WANG
 		# If passed, referer will be sent to the server. Otherwise the last visited URL will be sent to the server as the referer.
 		def post url, data, referer = nil
 			@log.debug("POST: #{url.to_s}")
-			request("POST", url.is_a?(URI) ? url : URI.parse(url), referer, data) 
+			request("POST", url.to_uri, referer, data)
 		end
 
 		# Issues a PUT request. See post for more details.
 		def put url, data, referer = nil
 			@log.debug("PUT: #{url.to_s}")
-			request("PUT", url.is_a?(URI) ? url : URI.parse(url), referer, data)
+			request("PUT", url.to_uri, referer, data)
 		end
 
 		# Issues a DELETE request.
 		def delete url, referer = nil
 			@log.debug("DELETE: #{url.to_s}")
-			request("DELETE", url.is_a?(URI) ? url : URI.parse(url), referer)
+			request("DELETE", url.to_uri, referer)
 		end
 
 		# Saves cookie from this Client instance's Jar to the given io
