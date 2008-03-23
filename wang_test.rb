@@ -51,6 +51,11 @@ class WangTest < Test::Unit::TestCase
 		assert body =~ /joux3 => king/
 	end
 
+	def test_head_http_method
+		status, headers, body = @client.head('http://localhost:8080/whatmethod')
+		assert_equal 'HEAD', headers['method-used']
+	end
+
 	def test_get_http_method
 		status, headers, body = @client.get('http://localhost:8080/whatmethod')
 		assert_equal 'GET', headers['method-used']
@@ -69,6 +74,16 @@ class WangTest < Test::Unit::TestCase
 	def test_delete_http_method
 		status, headers, body = @client.delete('http://localhost:8080/whatmethod')
 		assert_equal 'DELETE', headers['method-used']
+	end
+
+	def test_head_requests_return_nil_body
+		status, headers, body = @client.head('http://localhost:8080/')
+		assert_equal nil, body
+	end
+
+	def test_delete_requests_return_nil_body
+		status, headers, body = @client.delete('http://localhost:8080/whatmethod')
+		assert_equal nil, body
 	end
 
 	def test_cookie_domain

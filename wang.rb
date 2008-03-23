@@ -80,6 +80,14 @@ module WANG
 			@log.debug("Using #{@read_timeout} as the read timeout and #{@open_timeout} as the open timeout")
 		end
 
+		# Issues a HEAD request.
+		#
+		# Returns +nil+ for the body.
+		def head url, referer = nil
+			@log.debug("HEAD: #{url.to_s}")
+			request('HEAD', url.to_uri, referer)
+		end
+
 		# Fetches a page using GET method
 		#
 		# If passed, referer will be sent to the server. Otherwise the last visited URL will be sent to the server as the referer.
@@ -105,6 +113,8 @@ module WANG
 		end
 
 		# Issues a DELETE request.
+		#
+		# Returns +nil+ for the body.
 		def delete url, referer = nil
 			@log.debug("DELETE: #{url.to_s}")
 			request("DELETE", url.to_uri, referer)
@@ -148,7 +158,7 @@ module WANG
 			@log.debug("STATUS: #{status}")
 			headers = read_headers(uri)
 			@log.debug("HEADERS: #{headers.inspect}")
-			body = read_body(headers)
+			body = read_body(headers) if returns_body?(method)
 			@log.debug("WANGJAR: #{@jar.inspect}")
 
 			@socket.close if headers["connection"] =~ /close/
@@ -156,7 +166,7 @@ module WANG
 			@responses << Response.new(method, uri, status, headers)
 			return follow_redirect(headers["location"], uri) if redirect?(status)
 
-			body = decompress(headers["content-encoding"], body)
+			body &&= decompress(headers["content-encoding"], body)
 
 			return status, headers, body
 		end
@@ -236,6 +246,11 @@ module WANG
 		# Given an HTTP status code, returns whether it signifies a redirect.
 		def redirect? status
 			status.to_i / 100 == 3
+		end
+
+		# Given an HTTP method, returns whether a body should be read.
+		def returns_body? request_method
+			not ['HEAD', 'DELETE'].include?(request_method)
 		end
 
 		def follow_redirect location, olduri

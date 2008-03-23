@@ -6,6 +6,9 @@ class HTTPMethodServlet < WEBrick::HTTPServlet::AbstractServlet
 	%w(HEAD GET POST PUT DELETE).each do |http_method|
 		define_method("do_#{http_method}") do |request, response|
 			response['Method-Used'] = request.request_method
+			unless request.request_method == 'DELETE'
+				response.body = 'Some meaningless body'
+			end
 			raise WEBrick::HTTPStatus::OK
 		end
 	end
