@@ -123,7 +123,7 @@ module WANG
 		private
 		def request method, uri, referer = nil, data = nil
 			uri.path = "/" if uri.path.empty? # fix the path to contain / right here, otherwise it should be added to cookie stuff too
-			check_socket uri.host
+			check_socket uri.host, uri.port
 
 			referer = referer || @responses.last.nil? ? nil : @responses.last.uri
 			responses.clear if not responses.empty? and not redirect?(@responses.last.status)
@@ -259,14 +259,14 @@ module WANG
 			end
 		end
 
-		def check_socket host 		
-			connect(host) if @socket.nil? or @socket.closed? or @host.nil? or not @host.eql? host
+		def check_socket host, port
+			connect(host, port) if @socket.nil? or @socket.closed? or @host.nil? or not @host.eql? host
 		end
 
-		def connect host
+		def connect host, port = 'http'
 			@log.debug("Connecting to #{host}")
 			@socket.close unless @socket.nil? or @socket.closed?
-			@socket = TCPSocket.new({:read_timeout => @read_timeout, :open_timeout => @open_timeout}, host, 'http')
+			@socket = TCPSocket.new({:read_timeout => @read_timeout, :open_timeout => @open_timeout}, host, port)
 			@host = host
 		end
 	end
