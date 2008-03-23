@@ -5,7 +5,7 @@ require 'wang'
 
 class WangTest < Test::Unit::TestCase
 	def setup
-		@client = WANG.new
+		@client = WANG.new(:debug => true )
 	end
 
 	def test_returns_success_from_google
@@ -20,8 +20,9 @@ class WangTest < Test::Unit::TestCase
 	end
 
 	def test_follows_redirect
-		@client.get('http://google.com')
-		assert_not_equal 'http://google.com', @client.referer.to_s
+		@client.get('http://google.com/')
+		assert_equal 'http://google.com/', @client.responses.first.uri.to_s
+		assert_not_equal 'http://google.com/', @client.responses.last.uri.to_s
 	end
 
 	def test_posts_data_using_query_string
@@ -36,6 +37,20 @@ class WangTest < Test::Unit::TestCase
 		assert_equal 200, status
 		assert body =~ /_POST\["mopar"\].*dongs/
 		assert body =~ /_POST\["joux3"\].*king/
+	end
+
+	def test_cookie_domain
+		cookie = WANG::Cookie.new.parse("x=y; domain=cat.com")
+		assert cookie.match_domain?("cat.com")
+		assert !cookie.match_domain?("cat.com.au")
+		assert !cookie.match_domain?("cat,com") #just incase we are using the regexp '.'
+		assert !cookie.match_domain?("dogeatcat.com")
+		assert !cookie.match_domain?("ihatethat.cat.com")
+
+		cookie = WANG::Cookie.new.parse("x=y; domain=.cat.com")
+		assert cookie.match_domain?("blah.cat.com")
+		assert !cookie.match_domain?("cat.com") #this is what I read in the spec
+		assert !cookie.match_domain?("blah.cat.com.au")
 	end
 
 	def test_cookie_paths
@@ -54,8 +69,6 @@ end
 #	st, hd, bd = test.get("http://google.com")
 #	st, hd, bd = test.get("http://bash.org/?random1")
 #	st, hd, bd = test.get('http://pd.eggsampler.com')
-#	st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', 'mopar=dongs&joux3=king')
-#	st, hd, bd = test.post('http://emmanuel.faivre.free.fr/phpinfo.php', {'mopar'=>'dongs', 'joux3'=>'king'})
 #	st, hd, bd = test.get("http://www.myspace.com/")
 #
 #	#this shit is getting seriously pro:

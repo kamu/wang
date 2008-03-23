@@ -17,9 +17,9 @@ require 'zlib'
 require 'logger'
 require 'yaml'
 require 'timeout'
-require 'cgi'
 
 module WANG
+	Response = Struct.new(:method, :uri, :status, :headers)
 
 	DEFAULT_OPEN_TIMEOUT = 60
 	DEFAULT_READ_TIMEOUT = 60
@@ -46,7 +46,7 @@ module WANG
 	end
 
 	class Client
-		attr_accessor :referer
+		attr_accessor :responses
 
 		# Creates a new instance of WANG::Client
 		# 
@@ -61,7 +61,7 @@ module WANG
 			@jar = Jar.new
 			@socket = nil
 			@host = nil
-			@referer = URI.parse("http://www.google.com/")
+			@responses = [Response.new("GET", URI.parse("http://www.google.com/"), 200, {})]
 			@read_timeout = args[:read_timeout] || DEFAULT_READ_TIMEOUT
 			@open_timeout = args[:open_timeout] || DEFAULT_OPEN_TIMEOUT
 
@@ -101,16 +101,17 @@ module WANG
 			uri.path = "/" if uri.path.empty? # fix the path to contain / right here, otherwise it should be added to cookie stuff too
 			check_socket uri.host
 
-			@referer = referer.nil? ? @referer : referer
+			referer = referer || @responses.last.uri
+			responses.clear if not redirect?(@responses.last.status)
 
-			@socket << generate_request_headers(method, uri, @referer)
+			@socket << generate_request_headers(method, uri, referer)
 
 			if @jar.has_cookies_for?(uri)
 				@socket << "Cookie: #{@jar.cookies_for(uri)}\n"
 				@log.debug("SENDING COOKIES: #{@jar.cookies_for(uri)}")
 			end
 
-			data = data.map {|k,v| "#{CGI.escape(k)}=#{CGI.escape(v)}"}.join("&") if data.is_a?(Hash)
+			data = data.map {|k,v| "#{Utils.escape(k)}=#{Utils.escape(v)}"}.join("&") if data.is_a?(Hash)
 
 			if data
 				@socket << "Content-Type: application/x-www-form-urlencoded\n"
@@ -118,8 +119,6 @@ module WANG
 			end
 			@socket << "\n"
 			@socket << data if data
-
-			@referer = uri
 
 			status = read_status
 			@log.debug("STATUS: #{status}")
@@ -130,7 +129,9 @@ module WANG
 
 			@socket.close if headers["connection"] =~ /close/
 
+			@responses << Response.new(method, uri, status, headers)
 			return follow_redirect(headers["location"], uri) if redirect?(status)
+
 			body = decompress(headers["content-encoding"], body)
 
 			return status, headers, body
@@ -241,7 +242,7 @@ module WANG
 		def connect host
 			@log.debug("Connecting to #{host}")
 			@socket.close unless @socket.nil? or @socket.closed?
-			@socket = TCPSocket.new({:read_timeout=>@read_timeout, :open_timeout=>@open_timeout}, host, 'http')
+			@socket = TCPSocket.new({:read_timeout => @read_timeout, :open_timeout => @open_timeout}, host, 'http')
 			@host = host
 		end
 	end
@@ -275,7 +276,7 @@ module WANG
 
 			@domain = uri.host if @domain.nil? and uri
 			@path = uri.path if @path.nil? and uri
-			@path.sub!(/\/$/, "") #remove the trailing /, because path matching automatically adds it
+			@path.sub!(/\/$/, "") if @path #remove the trailing /, because path matching automatically adds it
 
 			self
 		end
@@ -358,6 +359,24 @@ module WANG
 
 			saved_jar.each do |c|
 				add(c)
+			end
+		end
+	end
+
+	module Utils
+		#we don't require 'cgi' round these 'ere parts
+
+		# URL-encode a string.
+		def self.escape(string)
+			string.gsub(/([^ a-zA-Z0-9_.-]+)/n) do
+				'%' + $1.unpack('H2' * $1.size).join('%').upcase
+			end.tr(' ', '+')
+		end
+			
+		# URL-decode a string.
+		def self.unescape(string)
+			string.tr('+', ' ').gsub(/((?:%[0-9a-fA-F]{2})+)/n) do
+				[$1.delete('%')].pack('H*')
 			end
 		end
 	end
