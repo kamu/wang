@@ -49,6 +49,10 @@ class WANGTestServer
 			sleep 1
 			raise WEBrick::HTTPStatus::OK
 		end
+		@server.mount_proc('/infiniteredirect') do |request, response|
+			response['Location'] = '/infiniteredirect'
+			raise WEBrick::HTTPStatus::TemporaryRedirect
+		end
 		@server.mount('/whatmethod', HTTPMethodServlet)
 	end
 

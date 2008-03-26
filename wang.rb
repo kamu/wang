@@ -35,6 +35,7 @@ module WANG
 
 	DEFAULT_OPEN_TIMEOUT = 60
 	DEFAULT_READ_TIMEOUT = 60
+	INFINITE_REDIR_COUMT = 7
 
 	# Creates a new instance of WANG::Client
 	#
@@ -137,6 +138,12 @@ module WANG
 
 			referer = referer || @responses.last.nil? ? nil : @responses.last.uri
 			responses.clear if not responses.empty? and not redirect?(@responses.last.status)
+
+			#http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.3
+			#there's no defined redir count that's considered infinite, so try something that makes sense
+			if responses.length > INFINITE_REDIR_COUMT
+				return #raise an error?
+			end
 
 			@socket << generate_request_headers(method, uri, referer)
 
@@ -255,7 +262,7 @@ module WANG
 
 		def follow_redirect location, olduri
 			@log.debug(location.inspect)
-			dest = URI.parse(location)
+			dest = location.to_uri
 			dest = olduri + dest unless dest.is_a?(URI::HTTP) # handle relative redirect
 			get(dest)
 		end

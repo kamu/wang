@@ -92,6 +92,10 @@ class WangTest < Test::Unit::TestCase
 		end
 	end
 
+	def test_infinite_redirection
+		@client.get('http://localhost:8080/infiniteredirect')
+	end
+
 	def test_cookie_domain
 		cookie = WANG::Cookie.new.parse("x=y; domain=cat.com")
 		assert cookie.match_domain?("cat.com")
