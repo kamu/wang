@@ -1,4 +1,5 @@
 # vim: set noet:
+#
 # WANG - Web Access with No Grief
 #   http://github.com/kamu/wang/
 
