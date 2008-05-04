@@ -1,14 +1,7 @@
 # vim: set noet:
 #
-# WANG - Web Access with No Grief v0.01
-#	kamu - <mr.kamu@gmail.com>
-# 	joux3 - <@>
-#
-# goal: fast & no-nonsense httplib that supports keepalive & [gz](lib|zip)
-#
-# TODO: 	caching system (via if-none-match/last-modified)
-# 		keep-alive timeouts (probably don't need seeing as the server disconnects anyway, and we handle reconnects already)
-# 		SSL (???)
+# WANG - Web Access with No Grief
+#   http://github.com/kamu/wang/wikis/home
 
 require 'socket'
 require 'uri'
