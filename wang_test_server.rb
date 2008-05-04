@@ -4,6 +4,7 @@
 #   http://github.com/kamu/wang/
 
 require 'webrick'
+require 'webrick/httpauth'
 require 'stringio'
 
 class HTTPMethodServlet < WEBrick::HTTPServlet::AbstractServlet
@@ -56,6 +57,13 @@ class WANGTestServer
 		@server.mount_proc('/infiniteredirect') do |request, response|
 			response['Location'] = '/infiniteredirect'
 			raise WEBrick::HTTPStatus::TemporaryRedirect
+		end
+		@server.mount_proc('/basic_auth') do |request, response|
+			WEBrick::HTTPAuth.basic_auth(request, response, "WANG basic HTTP auth test") {|user, pass|
+				user == 'tester' && pass == 'wanger'
+			}     
+			response.body = "Basic auth successful!"
+			raise WEBrick::HTTPStatus::OK
 		end
 		@server.mount('/whatmethod', HTTPMethodServlet)
 	end

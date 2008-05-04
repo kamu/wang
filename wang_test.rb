@@ -121,6 +121,13 @@ class WangTest < Test::Unit::TestCase
 		assert !cookie.match_path?("/lam")
 		assert !cookie.match_path?("/lam/oo")
 	end
+
+	def test_basic_auth
+		@client.set_auth('tester', 'wanger')
+		status, headers, body = @client.get('http://localhost:8080/basic_auth')
+		assert body =~ /auth successful/
+		@client.set_auth(nil, nil)
+	end
 end
 
 #if __FILE__ == $0

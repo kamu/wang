@@ -10,6 +10,7 @@ require 'zlib'
 require 'logger'
 require 'yaml'
 require 'timeout'
+require 'base64'
 
 class URI::Generic
 	def to_uri
@@ -124,6 +125,13 @@ module WANG
 			@jar.load(io)
 		end
 
+		# Sets the HTTP authentication username & password, which are then used for requests
+		# Call with +nil+ as username to remove authentication
+		def set_auth username, password
+			@http_auth = Base64.encode64(username+':'+password) if username
+			@http_auth = nil unless username
+		end
+
 		private
 		def request method, uri, referer = nil, data = nil
 			uri.path = "/" if uri.path.empty? # fix the path to contain / right here, otherwise it should be added to cookie stuff too
@@ -139,6 +147,7 @@ module WANG
 			end
 
 			@socket << generate_request_headers(method, uri, referer)
+			@socket << "Authorization: Basic #{@http_auth}\r\n" if @http_auth
 
 			if @jar.has_cookies_for?(uri)
 				@socket << "Cookie: #{@jar.cookies_for(uri)}\r\n"
