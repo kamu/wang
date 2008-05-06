@@ -127,9 +127,8 @@ module WANG
 
 		# Sets the HTTP authentication username & password, which are then used for requests
 		# Call with +nil+ as username to remove authentication
-		def set_auth username, password
-			@http_auth = Base64.encode64(username+':'+password) if username
-			@http_auth = nil unless username
+		def set_auth username, password=''
+			@http_auth = username ? Base64.encode64(username+':'+password).chomp : nil # for some reason, encode64 might add a \n
 		end
 
 		private
@@ -205,15 +204,19 @@ module WANG
 
 		def read_headers uri
 			headers = Hash.new
+			key = nil # allow using the latest key when appending multiline headers
 			while header = @socket.gets("\n")
 				header.chomp!
 				break if header.empty?
-
-				key, val = header.split(": ", 2)
-				if key =~ /^Set-Cookie2?$/i #do we dare consider set-cookie2 the same?
-					@jar.consume(val, uri)
+				if header =~ /^\s/
+					headers[key] << header.strip
 				else
-					headers.store(key.downcase, val)
+					key, val = header.split(": ", 2)
+					if key =~ /^Set-Cookie2?$/i #do we dare consider set-cookie2 the same?
+						@jar.consume(val, uri)
+					else
+						headers.store(key.downcase, val)
+					end
 				end
 			end
 

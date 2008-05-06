@@ -4,7 +4,6 @@
 #   http://github.com/kamu/wang/
 
 require 'webrick'
-require 'webrick/httpauth'
 require 'stringio'
 
 class HTTPMethodServlet < WEBrick::HTTPServlet::AbstractServlet
@@ -63,6 +62,16 @@ class WANGTestServer
 				user == 'tester' && pass == 'wanger'
 			}     
 			response.body = "Basic auth successful!"
+			raise WEBrick::HTTPStatus::OK
+		end
+		@htdigest = WEBrick::HTTPAuth::Htdigest.new('htdigest')
+		@authenticator = WEBrick::HTTPAuth::DigestAuth.new(
+			:UserDB => @htdigest,
+			:Realm => 'WANG digest HTTP auth test'
+		)
+		@server.mount_proc('/digest_auth') do |request, response|	
+			@authenticator.authenticate(request, response)		
+			response.body = "Digest auth successful!"
 			raise WEBrick::HTTPStatus::OK
 		end
 		@server.mount('/whatmethod', HTTPMethodServlet)
