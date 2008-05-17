@@ -134,14 +134,15 @@ module WANG
 		private
 		def request method, uri, referer = nil, data = nil
 			uri.path = "/" if uri.path.empty? # fix the path to contain / right here, otherwise it should be added to cookie stuff too
+			uri = @responses.last.uri + uri unless uri.is_a?(URI::HTTP) # if the uri is relative, combine it with the uri of the latest response
 			check_socket uri.host, uri.port
 
 			referer = referer || @responses.last.nil? ? nil : @responses.last.uri
-			responses.clear if not responses.empty? and not redirect?(@responses.last.status)
+			@responses.clear if not @responses.empty? and not redirect?(@responses.last.status)
 
 			#http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.3
 			#there's no defined redir count that's considered infinite, so try something that makes sense
-			if responses.length > INFINITE_REDIR_COUMT
+			if @responses.length > INFINITE_REDIR_COUMT
 				return #raise an error?
 			end
 
@@ -268,7 +269,6 @@ module WANG
 		def follow_redirect location, olduri
 			@log.debug(location.inspect)
 			dest = location.to_uri
-			dest = olduri + dest unless dest.is_a?(URI::HTTP) # handle relative redirect
 			get(dest)
 		end
 
