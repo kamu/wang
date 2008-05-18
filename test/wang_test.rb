@@ -5,7 +5,7 @@
 
 require 'test/unit'
 require 'wang'
-require 'wang_test_server'
+require 'test/wang_test_server'
 
 $test_server = WANGTestServer.new
 Thread.new do

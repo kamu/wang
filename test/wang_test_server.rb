@@ -64,7 +64,7 @@ class WANGTestServer
 			response.body = "Basic auth successful!"
 			raise WEBrick::HTTPStatus::OK
 		end
-		@htdigest = WEBrick::HTTPAuth::Htdigest.new('htdigest')
+		@htdigest = WEBrick::HTTPAuth::Htdigest.new('test/htdigest')
 		@authenticator = WEBrick::HTTPAuth::DigestAuth.new(
 			:UserDB => @htdigest,
 			:Realm => 'WANG digest HTTP auth test'
