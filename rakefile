@@ -1,5 +1,28 @@
+require 'rubygems'
+require 'rake/testtask'
+require 'rake/gempackagetask'
+
 task :default => [:test]
 
-task :test do
-	ruby "test/wang_test.rb"
+spec = Gem::Specification.new do |s|
+	s.platform = Gem::Platform::RUBY
+	s.name = 'wang'
+	s.version = "0.01"
+	s.summary = "Web Access with No Grief."
+	s.authors = ["Kamu", "Joux3"]
+	s.email = "mr.kamu@gmail.com"
+	s.homepage = "http://github.com/kamu/wang/tree"
+	s.requirements << 'none'
+	s.require_path = 'lib'
+	s.files = FileList["rakefile", "lib/**/*", "test/**/*"]
+	s.test_files = FileList["test/wang_test.rb"]
+end
+
+Rake::TestTask.new do |t|
+	t.test_files = FileList["test/wang_test.rb"]
+	t.verbose = true
+end
+
+Rake::GemPackageTask.new(spec) do |p|
+	p.need_tar = true
 end
