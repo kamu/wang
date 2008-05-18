@@ -29,7 +29,7 @@ module WANG
 
 	DEFAULT_OPEN_TIMEOUT = 60
 	DEFAULT_READ_TIMEOUT = 60
-	INFINITE_REDIR_COUMT = 7
+	INFINITE_REDIR_COUNT = 7
 
 	# Creates a new instance of WANG::Client
 	#
@@ -142,7 +142,7 @@ module WANG
 
 			#http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.3
 			#there's no defined redir count that's considered infinite, so try something that makes sense
-			if @responses.length > INFINITE_REDIR_COUMT
+			if @responses.length > INFINITE_REDIR_COUNT
 				return #raise an error?
 			end
 
@@ -173,7 +173,7 @@ module WANG
 			@socket.close if headers["connection"] =~ /close/
 
 			@responses << Response.new(method, uri, status, headers)
-			return follow_redirect(headers["location"], uri) if redirect?(status)
+			return follow_redirect(headers["location"]) if redirect?(status)
 
 			body &&= decompress(headers["content-encoding"], body)
 
@@ -266,7 +266,7 @@ module WANG
 			not ['HEAD', 'DELETE'].include?(request_method)
 		end
 
-		def follow_redirect location, olduri
+		def follow_redirect location
 			@log.debug(location.inspect)
 			dest = location.to_uri
 			get(dest)
@@ -416,8 +416,6 @@ module WANG
 	end
 
 	module Utils
-		#we don't require 'cgi' round these 'ere parts
-
 		# URL-encode a string.
 		def self.escape string
 			string.gsub(/([^ a-zA-Z0-9_.-]+)/n) do

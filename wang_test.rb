@@ -123,25 +123,12 @@ class WangTest < Test::Unit::TestCase
 	end
 
 	def test_basic_auth
+		status, headers, body = @client.get('http://localhost:8080/basic_auth')
+		assert_equal status, 401 #unauthorized!
+
 		@client.set_auth('tester', 'wanger')
 		status, headers, body = @client.get('http://localhost:8080/basic_auth')
+		assert_equal status, 200
 		assert body =~ /auth successful/
-		@client.set_auth(nil, nil)
 	end
 end
-
-#if __FILE__ == $0
-#	test = WANG.new({:open_timeout=>5})
-#	st, hd, bd = test.get("http://www.whatismyip.com")
-#	st, hd, bd = test.get("http://google.com")
-#	st, hd, bd = test.get("http://bash.org/?random1")
-#	st, hd, bd = test.get('http://pd.eggsampler.com')
-#	st, hd, bd = test.get("http://www.myspace.com/")
-#
-#	#this shit is getting seriously pro:
-#	test.load_cookies(File.new("cookietest.txt", "r")) if File.exists?("cookietest.txt")
-#	st, hd, bd = test.get("http://www.myspace.com/")
-#	test.save_cookies(File.new("cookietest.txt", "w"))
-#	puts [st, hd].inspect
-#	puts bd
-#end
