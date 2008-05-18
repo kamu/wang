@@ -1,6 +1,7 @@
 require 'rubygems'
 require 'rake/testtask'
 require 'rake/gempackagetask'
+require 'rcov/rcovtask'
 
 task :default => [:test]
 
@@ -25,4 +26,9 @@ end
 
 Rake::GemPackageTask.new(spec) do |p|
 	p.need_tar = true
+end
+
+Rcov::RcovTask.new do |t|
+	t.test_files = FileList["test/wang_test.rb"]
+	t.verbose = true
 end
