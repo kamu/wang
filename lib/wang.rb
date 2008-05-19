@@ -61,17 +61,20 @@ module WANG
 		# [:read_timeout] defines the timeout for socket reading in seconds
 		# [:open_timeout] defines the timeout for connecting in seconds
 		# [:debug] any value passed defines debug mode
+		# [:proxy_address] defines the proxy address to use for all the requests made (host:port)
 		def initialize args = {}
 			@log = Logger.new(STDOUT)
 			@log.level = args[:debug] ? Logger::DEBUG : Logger::WARN
 
 			@jar = Jar.new
 			@socket = nil
-			@host = nil
+			@host, @port = nil, nil # create a struct that combines host & port?
 			@responses = []
 			@read_timeout = args[:read_timeout] || DEFAULT_READ_TIMEOUT
 			@open_timeout = args[:open_timeout] || DEFAULT_OPEN_TIMEOUT
+			@proxy_host, @proxy_port = args[:proxy_address] ? args[:proxy_address].split(':', 2) : [nil, nil]
 
+			@log.debug("Connecting through a proxy: #{@proxy_host}:#{@proxy_port}") if @proxy_host
 			@log.debug("Using #{@read_timeout} as the read timeout and #{@open_timeout} as the open timeout")
 		end
 
@@ -135,7 +138,7 @@ module WANG
 		def request method, uri, referer = nil, data = nil
 			uri.path = "/" if uri.path.empty? # fix the path to contain / right here, otherwise it should be added to cookie stuff too
 			uri = @responses.last.uri + uri unless uri.is_a?(URI::HTTP) # if the uri is relative, combine it with the uri of the latest response
-			check_socket uri.host, uri.port
+			check_socket *(@proxy_host ? [@proxy_host, @proxy_port] : [uri.host, uri.port])
 
 			referer = referer || @responses.last.nil? ? nil : @responses.last.uri
 			@responses.clear if not @responses.empty? and not redirect?(@responses.last.status)
@@ -184,7 +187,7 @@ module WANG
 			request_path = uri.path + (uri.query.nil? ? '' : "?#{uri.query}")
 			request_host = uri.host + (uri.port ? ":#{uri.port}" : '')
 			[
-				"#{request_method} #{request_path} HTTP/1.1",
+				"#{request_method} #{@proxy_host ? uri.to_s : request_path} HTTP/1.1",
 				"Host: #{request_host}",
 				"User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.12) Gecko/20080201 Firefox/2.0.0.12",
 				"Accept: application/x-shockwave-flash,text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5",
@@ -287,15 +290,16 @@ module WANG
 			end
 		end
 
-		def check_socket host, port
-			connect(host, port) if @socket.nil? or @socket.closed? or @host.nil? or not @host.eql? host
+		def check_socket host, port = 'http'
+			connect(host, port) if @socket.nil? or @socket.closed? or @host.nil? or not @host.eql? host or @port.nil? or not @port.eql? port
 		end
 
-		def connect host, port = 'http'
+		def connect host, port
 			@log.debug("Connecting to #{host}:#{port}")
 			@socket.close unless @socket.nil? or @socket.closed?
 			@socket = TCPSocket.new({:read_timeout => @read_timeout, :open_timeout => @open_timeout}, host, port)
 			@host = host
+			@port = port
 		end
 	end
 
