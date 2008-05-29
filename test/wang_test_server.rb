@@ -5,6 +5,7 @@
 
 require 'webrick'
 require 'stringio'
+require 'zlib'
 
 class HTTPMethodServlet < WEBrick::HTTPServlet::AbstractServlet
 	%w(HEAD GET POST PUT DELETE).each do |http_method|
@@ -75,6 +76,55 @@ class WANGTestServer
 			raise WEBrick::HTTPStatus::OK
 		end
 		@server.mount('/whatmethod', HTTPMethodServlet)
+		@server.mount_proc('/cookie_check') do |request, response|
+			request.cookies.each do |cookie|
+				raise WEBrick::HTTPStatus::OK if cookie.name.eql?("wangcookie") and cookie.value.eql?("getyerhandoffmywang")
+			end
+			raise WEBrick::HTTPStatus::Unauthorized
+		end
+		@server.mount_proc('/cookie_set') do |request, response|
+			cookie = WEBrick::Cookie.new('wangcookie', 'getyerhandoffmywang')
+			response.cookies << cookie
+			raise WEBrick::HTTPStatus::OK
+		end
+		@server.mount_proc('/cookie_set2') do |request, response|
+			cookie = WEBrick::Cookie.new('wangcookie', 'touchmywang')
+			response.cookies << cookie
+			raise WEBrick::HTTPStatus::OK
+		end
+		@server.mount_proc('/cookie_check2') do |request, response|
+			request.cookies.each do |cookie|
+				raise WEBrick::HTTPStatus::OK if cookie.name.eql?("wangcookie") and cookie.value.eql?("touchmywang")
+			end
+			raise WEBrick::HTTPStatus::Unauthorized
+		end
+		@server.mount_proc('/cookie_set_expired') do |request, response|
+			cookie = WEBrick::Cookie.new('wangcookie', 'getyerhandoffmywang')
+			cookie.expires = (Time.now - 60*60*1)
+			response.cookies << cookie
+			raise WEBrick::HTTPStatus::OK
+		end
+
+		@server.mount_proc('/cookie_set_nonexpired') do |request, response|
+			cookie = WEBrick::Cookie.new('wangcookie', 'getyerhandoffmywang')
+			cookie.expires = (Time.now + 60*60*1)
+			response.cookies << cookie
+			raise WEBrick::HTTPStatus::OK
+		end
+		@server.mount_proc('/test_inflate') do |request, response|
+			response['content-encoding'] = 'deflate'
+			response.body = Zlib::Deflate.deflate("inflate worked")
+			raise WEBrick::HTTPStatus::OK
+		end
+		@server.mount_proc('/test_gzip') do |request, response|
+			response['content-encoding'] = 'gzip'
+			output = StringIO.open('', 'w')
+			gz = Zlib::GzipWriter.new(output)
+			gz.write("gzip worked")
+			gz.close
+			response.body = output.string
+			raise WEBrick::HTTPStatus::OK
+		end
 	end
 
 	def start

@@ -331,7 +331,7 @@ module WANG
 			end
 
 			@domain = uri.host if @domain.nil? and uri
-			@path = uri.path if @path.nil? and uri
+			@path = "/" if @path.nil? and uri
 			@path.sub!(/\/$/, "") if @path #remove the trailing /, because path matching automatically adds it
 
 			self
