@@ -422,14 +422,14 @@ module WANG
 	module Utils
 		# URL-encode a string.
 		def self.escape string
-			string.gsub(/([^ a-zA-Z0-9_.-]+)/n) do
+			string.to_s.gsub(/([^ a-zA-Z0-9_.-]+)/n) do
 				'%' + $1.unpack('H2' * $1.size).join('%').upcase
 			end.tr(' ', '+')
 		end
 			
 		# URL-decode a string.
 		def self.unescape string
-			string.tr('+', ' ').gsub(/((?:%[0-9a-fA-F]{2})+)/n) do
+			string.to_s.tr('+', ' ').gsub(/((?:%[0-9a-fA-F]{2})+)/n) do
 				[$1.delete('%')].pack('H*')
 			end
 		end
