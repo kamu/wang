@@ -62,6 +62,7 @@ module WANG
 		# [:open_timeout] defines the timeout for connecting in seconds
 		# [:debug] any value passed defines debug mode
 		# [:proxy_address] defines the proxy address to use for all the requests made (host:port)
+		# [:no_keepalive] any value passed will disable keep-alive
 		def initialize args = {}
 			@log = Logger.new(STDOUT)
 			@log.level = args[:debug] ? Logger::DEBUG : Logger::WARN
@@ -73,6 +74,7 @@ module WANG
 			@read_timeout = args[:read_timeout] || DEFAULT_READ_TIMEOUT
 			@open_timeout = args[:open_timeout] || DEFAULT_OPEN_TIMEOUT
 			@proxy_host, @proxy_port = args[:proxy_address] ? args[:proxy_address].split(':', 2) : [nil, nil]
+			@no_keepalive = args[:no_keepalive]
 
 			@log.debug("Connecting through a proxy: #{@proxy_host}:#{@proxy_port}") if @proxy_host
 			@log.debug("Using #{@read_timeout} as the read timeout and #{@open_timeout} as the open timeout")
@@ -173,7 +175,7 @@ module WANG
 			body = read_body(headers) if returns_body?(method)
 			@log.debug("WANGJAR: #{@jar.inspect}")
 
-			@socket.close if headers["connection"] =~ /close/
+			@socket.close if headers["connection"] =~ /close/ or @no_keepalive
 
 			@responses << Response.new(method, uri, status, headers)
 			return follow_redirect(headers["location"]) if redirect?(status)
@@ -195,7 +197,7 @@ module WANG
 				"Accept-Encoding: gzip,deflate,identity",
 				"Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7",
 				"Keep-Alive: 300",
-				"Connection: keep-alive",
+				"Connection: #{@no_keepalive ? "close" : "keep-alive"}",
 				referer.nil? ? "" : "Referer: #{referer}\r\n" # an extra \r\n is needed for the last entry
 			].join("\r\n")
 		end
