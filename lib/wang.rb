@@ -187,14 +187,14 @@ module WANG
 
 		def generate_request_headers request_method, uri, referer
 			request_path = uri.path + (uri.query.nil? ? '' : "?#{uri.query}")
-			request_host = uri.host + (uri.port ? ":#{uri.port}" : '')
+			request_host = uri.host + ((uri.port && uri.port != 80) ? ":#{uri.port}" : '')
 			[
 				"#{request_method} #{@proxy_host ? uri.to_s : request_path} HTTP/1.1",
 				"Host: #{request_host}",
-				"User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.12) Gecko/20080201 Firefox/2.0.0.12",
+				"User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9) Gecko/2008052906 Firefox/3.0",
 				"Accept: application/x-shockwave-flash,text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5",
 				"Accept-Language: en-us,en;q=0.5",
-				"Accept-Encoding: gzip,deflate,identity",
+				"Accept-Encoding: gzip,deflate",
 				"Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7",
 				"Keep-Alive: 300",
 				"Connection: #{@no_keepalive ? "close" : "keep-alive"}",
@@ -272,7 +272,7 @@ module WANG
 		end
 
 		def follow_redirect location
-			@log.debug(location.inspect)
+			@log.debug("Redirect to #{location.inspect}")
 			dest = location.to_uri
 			get(dest)
 		end
