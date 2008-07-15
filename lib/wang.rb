@@ -46,7 +46,7 @@ module WANG
 			Timeout::timeout(open_timeout) { super }
 		end
 
-		TIMEOUT_READ = %w{read readpartial gets readline}
+		TIMEOUT_READ = %w{read readpartial gets readline eof?}
 		TIMEOUT_READ.each {|m|
 			class_eval "def #{m}(*args); Timeout::timeout(@read_timeout) { super }; end;"
 		}
@@ -167,6 +167,12 @@ module WANG
 			end
 			@socket << "\r\n"
 			@socket << data if data
+
+			if @socket.eof? #this is the first place after connection start where checking for eof is safe, because we can expect data
+				@socket.close unless @socket.closed?
+				@log.debug("EOF detected, retrying")
+				return request method, uri, referer, data
+			end
 
 			status = read_status
 			@log.debug("STATUS: #{status}")
