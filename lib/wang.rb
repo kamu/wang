@@ -171,7 +171,7 @@ module WANG
 			if @socket.eof? #this is the first place after connection start where checking for eof is safe, because we can expect data
 				@socket.close unless @socket.closed?
 				@log.debug("EOF detected, retrying")
-				return request method, uri, referer, data
+				return request(method, uri, referer, data)
 			end
 
 			status = read_status

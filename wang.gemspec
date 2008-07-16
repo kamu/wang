@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
 	s.platform = Gem::Platform::RUBY
 	s.name = 'wang'
-	s.version = "0.05"
+	s.version = "0.06"
 	s.summary = "Web Access with No Grief."
 	s.authors = ["Kamu", "Joux3"]
 	s.email = "mr.kamu@gmail.com"
