@@ -46,6 +46,15 @@ module WANG
 			Timeout::timeout(open_timeout) { super }
 		end
 
+		# readbytes would just raise a TruncatedDataError, this one keeps reading
+		def read_exactly count
+			read_bytes = ""
+			while read_bytes.length < count
+				read_bytes << read([count - read_bytes.length, 4096].min)
+			end
+			read_bytes
+		end
+
 		TIMEOUT_READ = %w{read readpartial gets readline eof?}
 		TIMEOUT_READ.each {|m|
 			class_eval "def #{m}(*args); Timeout::timeout(@read_timeout) { super }; end;"
@@ -242,25 +251,16 @@ module WANG
 					line = @socket.readline
 					chunk_len = line.slice(/[0-9a-fA-F]+/).hex
 					break if chunk_len == 0
-					while chunk_len > 0 # make sure to read the whole chunk
-						buf = @socket.read(chunk_len)
-						chunk_len -= buf.length
-						body << buf
-					end
-					@socket.read 2 # read the damn linechange
+					body << @socket.read_exactly(chunk_len)
+					@socket.readline # read the damn linechange
 				end
 				until (line = @socket.gets) and (line.nil? or line.sub(/\r?\n?/, "").empty?); end # read the chunk footers and the last line
 			elsif headers["content-length"]
-				clen = headers["content-length"].to_i
-				while body.length < clen
-					body << @socket.read([clen - body.length, 4096].min)
-				end
+				body << @socket.read_exactly(headers["content-length"].to_i)
 			else #fallback that'll just consume all the data available 
-				begin
-					while true
-						body << @socket.readpartial(4096)
-					end
-				rescue EOFError
+				last_data = ""
+				while !last_data.nil?
+					body << (last_data = @socket.read(4096))
 				end
 			end
 
